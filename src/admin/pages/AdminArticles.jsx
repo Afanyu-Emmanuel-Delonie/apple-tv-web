@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Eye, Search, Clock, RefreshCw, Upload, X, AlertTriangle } from "lucide-react";
-import { getAll, create, update, remove, COLLECTIONS } from "../../services/firebase/firestore";
+import { Plus, Edit, Trash2, Eye, Search, Clock, RefreshCw, Upload, X, AlertTriangle, Lock } from "lucide-react";
+import { getAll, createWithDuplicateCheck, updateWithDuplicateCheck, remove, createContentNotification, COLLECTIONS } from "../../services/firebase/firestore";
 import { uploadImage, STORAGE_PATHS } from "../../services/firebase/storage";
+import { categories } from "../../constants/news";
+import { useAuth } from "../../contexts/AuthContext";
+import { hasPermission, canModifyItem, filterItemsByPermission, PERMISSIONS } from "../../utils/permissions";
+import PageLoader from "../../components/PageLoader";
+import { usePageReloadLoader } from "../../hooks/useSessionLoader";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminArticles() {
+  const { user } = useAuth();
   const [articles, setArticles] = useState([]);
+  const [filteredArticles, setFilteredArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const showLoader = usePageReloadLoader([loading], 1200);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -31,11 +39,50 @@ export default function AdminArticles() {
     status: "active"
   });
 
-  const categories = ["All", "Headlines", "Latest", "International", "Business", "Politics", "Entertainment", "Sports", "Technology", "Health"];
+  const availableCategories = ["All", ...categories.map(cat => cat.name)];
+
+  // Calculate category statistics based on filtered articles
+  const getCategoryStats = () => {
+    const stats = {};
+    const activeArticles = filteredArticles.filter(article => article.status === "active");
+    
+    availableCategories.forEach(categoryName => {
+      if (categoryName === "All") {
+        stats[categoryName] = {
+          count: activeArticles.length,
+          color: "#002fa7"
+        };
+      } else {
+        const categoryArticles = activeArticles.filter(article => article.category === categoryName);
+        const categoryData = categories.find(cat => cat.name === categoryName);
+        stats[categoryName] = {
+          count: categoryArticles.length,
+          color: categoryData?.color || "#8b91a5"
+        };
+      }
+    });
+    
+    return stats;
+  };
 
   useEffect(() => {
     fetchArticles();
   }, []);
+
+  // Filter articles based on user permissions and search/filter criteria
+  useEffect(() => {
+    let filtered = filterItemsByPermission(articles, user, 'article');
+    
+    // Apply search and category filters
+    filtered = filtered.filter(article => {
+      const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "All" || article.category === filterCategory;
+      const matchesStatus = filterStatus === "All" || article.status === filterStatus.toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+    
+    setFilteredArticles(filtered);
+  }, [articles, user, searchTerm, filterCategory, filterStatus]);
 
   const fetchArticles = async () => {
     try {
@@ -54,21 +101,26 @@ export default function AdminArticles() {
     setToast({ message, type });
   };
 
-  const filteredArticles = articles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "All" || article.category === filterCategory;
-    const matchesStatus = filterStatus === "All" || article.status === filterStatus.toLowerCase();
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  // Check if user can create articles
+  const canCreateArticle = hasPermission(user, PERMISSIONS.CREATE_ARTICLE);
+  
+  // Check if user can edit/delete specific article
+  const canEditArticle = (article) => canModifyItem(user, article, 'edit', 'article');
+  const canDeleteArticle = (article) => canModifyItem(user, article, 'delete', 'article');
 
   const handleAdd = () => {
+    if (!canCreateArticle) {
+      addToast('You do not have permission to create articles', 'error');
+      return;
+    }
+    
     setModalMode("add");
     setFormData({
       title: "",
       category: "Headlines",
       excerpt: "",
       content: "",
-      author: "",
+      author: user?.displayName || user?.name || "",
       imageUrl: "",
       isSensitive: false,
       status: "active"
@@ -85,6 +137,11 @@ export default function AdminArticles() {
   };
 
   const handleEdit = (article) => {
+    if (!canEditArticle(article)) {
+      addToast('You do not have permission to edit this article', 'error');
+      return;
+    }
+    
     setModalMode("edit");
     setFormData(article);
     setImageFile(null);
@@ -93,6 +150,11 @@ export default function AdminArticles() {
   };
 
   const handleDelete = (article) => {
+    if (!canDeleteArticle(article)) {
+      addToast('You do not have permission to delete this article', 'error');
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: "Delete Article",
@@ -102,6 +164,10 @@ export default function AdminArticles() {
         try {
           await remove(COLLECTIONS.ARTICLES, article.id);
           setArticles(articles.filter(a => a.id !== article.id));
+          
+          // Create notification for deleted article
+          await createContentNotification(COLLECTIONS.ARTICLES, article, user, 'deleted');
+          
           addToast("Article deleted successfully", "success");
         } catch (error) {
           console.error('Error deleting article:', error);
@@ -149,16 +215,48 @@ export default function AdminArticles() {
       }
 
       if (modalMode === "add") {
-        const newArticleData = { ...formData, imageUrl, status: "active" };
-        const newId = await create(COLLECTIONS.ARTICLES, newArticleData);
-        setArticles([{ id: newId, ...newArticleData }, ...articles]);
-        addToast("Article added successfully", "success");
+        const newArticleData = { 
+          ...formData, 
+          imageUrl, 
+          status: "active",
+          createdBy: user?.uid,
+          author: formData.author || user?.displayName || user?.name || "Unknown"
+        };
+        try {
+          const newId = await createWithDuplicateCheck(COLLECTIONS.ARTICLES, newArticleData, false);
+          const newArticle = { id: newId, ...newArticleData };
+          setArticles([newArticle, ...articles]);
+          
+          // Create notification for new article
+          await createContentNotification(COLLECTIONS.ARTICLES, newArticle, user, 'created');
+          
+          addToast("Article added successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       } else if (modalMode === "edit") {
         const { id, createdAt, updatedAt, ...updateData } = formData;
         const updatedData = { ...updateData, imageUrl };
-        await update(COLLECTIONS.ARTICLES, formData.id, updatedData);
-        setArticles(articles.map(a => a.id === formData.id ? { ...formData, imageUrl } : a));
-        addToast("Article updated successfully", "success");
+        try {
+          await updateWithDuplicateCheck(COLLECTIONS.ARTICLES, formData.id, updatedData, false);
+          const updatedArticle = { ...formData, imageUrl };
+          setArticles(articles.map(a => a.id === formData.id ? updatedArticle : a));
+          
+          // Create notification for updated article
+          await createContentNotification(COLLECTIONS.ARTICLES, updatedArticle, user, 'updated');
+          
+          addToast("Article updated successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       }
       setShowModal(false);
       setImageFile(null);
@@ -170,6 +268,10 @@ export default function AdminArticles() {
       setUploading(false);
     }
   };
+
+  if (showLoader) {
+    return <PageLoader isLoading={true} />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -201,12 +303,56 @@ export default function AdminArticles() {
           </button>
           <button 
             onClick={handleAdd}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
+            disabled={!canCreateArticle}
+            className={`flex items-center justify-center gap-2 px-6 py-3 text-[13px] sm:text-[14px] font-semibold rounded transition-colors whitespace-nowrap ${
+              canCreateArticle 
+                ? "bg-[#002fa7] text-white hover:bg-[#0026c4]" 
+                : "bg-[#8b91a5] text-white cursor-not-allowed"
+            }`}
+            title={!canCreateArticle ? "You don't have permission to create articles" : ""}
           >
             <Plus size={20} />
             Add Article
           </button>
         </div>
+      </div>
+
+      {/* Category Statistics Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        {Object.entries(getCategoryStats()).map(([category, stats]) => (
+          <div 
+            key={category}
+            className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer hover:shadow-md ${
+              filterCategory === category 
+                ? 'border-current shadow-md' 
+                : 'border-[#e3e6ee] hover:border-[#d1d5db]'
+            }`}
+            style={{ 
+              borderColor: filterCategory === category ? stats.color : undefined,
+              backgroundColor: filterCategory === category ? `${stats.color}08` : undefined
+            }}
+            onClick={() => setFilterCategory(category)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: stats.color }}
+              />
+              <span 
+                className="text-[24px] sm:text-[28px] font-black"
+                style={{ color: stats.color }}
+              >
+                {stats.count}
+              </span>
+            </div>
+            <div className="text-[12px] sm:text-[13px] font-semibold text-[#2c3348] truncate">
+              {category}
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-[#8b91a5] mt-1">
+              {stats.count === 1 ? 'Article' : 'Articles'}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
@@ -227,7 +373,7 @@ export default function AdminArticles() {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="px-4 py-2.5 sm:py-3 border border-[#e3e6ee] rounded text-[13px] sm:text-[14px] focus:outline-none focus:border-[#002fa7]"
           >
-            {categories.map(cat => (
+            {availableCategories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -310,20 +456,40 @@ export default function AdminArticles() {
                       >
                         <Eye size={18} />
                       </button>
-                      <button 
-                        onClick={() => handleEdit(article)}
-                        className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
-                        title="Edit"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(article)}
-                        className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {canEditArticle(article) ? (
+                        <button 
+                          onClick={() => handleEdit(article)}
+                          className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <Edit size={18} />
+                        </button>
+                      ) : (
+                        <button 
+                          className="p-2 text-[#8b91a5] cursor-not-allowed"
+                          title="You don't have permission to edit this article"
+                          disabled
+                        >
+                          <Lock size={18} />
+                        </button>
+                      )}
+                      {canDeleteArticle(article) ? (
+                        <button
+                          onClick={() => handleDelete(article)}
+                          className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      ) : (
+                        <button 
+                          className="p-2 text-[#8b91a5] cursor-not-allowed"
+                          title="You don't have permission to delete this article"
+                          disabled
+                        >
+                          <Lock size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -384,20 +550,42 @@ export default function AdminArticles() {
                   <Eye size={16} />
                   View
                 </button>
-                <button 
-                  onClick={() => handleEdit(article)}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
-                >
-                  <Edit size={16} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(article)}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
-                >
-                  <Trash2 size={16} />
-                  Delete
-                </button>
+                {canEditArticle(article) ? (
+                  <button 
+                    onClick={() => handleEdit(article)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                  >
+                    <Edit size={16} />
+                    Edit
+                  </button>
+                ) : (
+                  <button 
+                    className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                    title="You don't have permission to edit this article"
+                    disabled
+                  >
+                    <Lock size={16} />
+                    Edit
+                  </button>
+                )}
+                {canDeleteArticle(article) ? (
+                  <button
+                    onClick={() => handleDelete(article)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </button>
+                ) : (
+                  <button 
+                    className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                    title="You don't have permission to delete this article"
+                    disabled
+                  >
+                    <Lock size={16} />
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
           ))
@@ -501,7 +689,7 @@ export default function AdminArticles() {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-4 py-3 border border-[#e3e6ee] rounded text-[14px] focus:outline-none focus:border-[#002fa7]"
                   >
-                    {categories.filter(c => c !== "All").map(cat => (
+                    {availableCategories.filter(c => c !== "All").map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>

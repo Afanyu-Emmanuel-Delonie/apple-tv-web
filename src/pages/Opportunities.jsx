@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { getAll, COLLECTIONS } from "../services/firebase/firestore";
 import { opportunityCategories } from "../constants/opportunities";
 import OpportunitiesCTA from "../components/OpportunitiesCTA";
+import { formatOpportunityTitle, formatExcerpt, formatCompanyName, formatLocation } from "../utils/textUtils";
 
 export default function Opportunities() {
   const [opportunities, setOpportunities] = useState([]);
@@ -98,7 +99,7 @@ export default function Opportunities() {
                       </div>
                       <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
                         <h3 className="text-[16px] sm:text-[20px] font-playfair font-black text-white leading-[1.2] group-hover:text-[#ffd700] transition-colors">
-                          {opportunity.title}
+                          {formatOpportunityTitle(opportunity.title)}
                         </h3>
                       </div>
                     </div>
@@ -168,18 +169,18 @@ export default function Opportunities() {
                     <div className="p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-[10px] sm:text-[11px] font-medium text-[#8b91a5] truncate">
-                          {opportunity.company}
+                          {formatCompanyName(opportunity.company)}
                         </span>
                       </div>
                       <h3 className="text-[16px] sm:text-[18px] font-playfair font-bold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors line-clamp-2">
-                        {opportunity.title}
+                        {formatOpportunityTitle(opportunity.title)}
                       </h3>
                       <p className="text-[13px] sm:text-[14px] text-[#2c3348]/70 leading-[1.6] mb-3 line-clamp-2">
-                        {opportunity.description?.substring(0, 100)}...
+                        {formatExcerpt(opportunity.description, 'card')}
                       </p>
                       <div className="space-y-2 pt-3 border-t border-[#e3e6ee]">
                         <div className="flex items-center justify-between text-[11px] sm:text-[12px] gap-2">
-                          <span className="text-[#8b91a5] truncate flex-1">{opportunity.location}</span>
+                          <span className="text-[#8b91a5] truncate flex-1">{formatLocation(opportunity.location)}</span>
                           <span className="font-bold text-[#002fa7] whitespace-nowrap">{opportunity.salary}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] sm:text-[12px]">

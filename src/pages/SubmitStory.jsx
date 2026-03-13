@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, X } from "lucide-react";
+import { create, createNotification, COLLECTIONS } from "../services/firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { app } from "../services/firebase/config";
+import { useFormTracking } from "../hooks/useAnalytics";
 
 export default function SubmitStory() {
   const navigate = useNavigate();
   const [showToast, setShowToast] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { trackStorySubmit } = useFormTracking();
   const [formData, setFormData] = useState({
     submissionType: "story",
     name: "",
@@ -29,62 +35,99 @@ export default function SubmitStory() {
     setFormData(prev => ({ ...prev, image: e.target.files[0] }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    // Create submission object
-    const submission = {
-      id: Date.now(),
-      title: formData.title,
-      type: formData.submissionType === "story" ? "News Story" : 
-            formData.submissionType === "job" ? "Job Offer" : "Opportunity",
-      category: formData.category,
-      author: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      date: "Just now",
-      status: "pending",
-      actionTimestamp: null,
-      description: formData.description,
-      location: formData.location,
-      deadline: formData.deadline,
-      company: formData.company,
-      salary: formData.salary,
-      image: formData.image ? URL.createObjectURL(formData.image) : null
-    };
-
-    // Get existing submissions from localStorage
-    const existingSubmissions = JSON.parse(localStorage.getItem('submissions') || '[]');
-    
-    // Add new submission
-    existingSubmissions.unshift(submission);
-    
-    // Save to localStorage
-    localStorage.setItem('submissions', JSON.stringify(existingSubmissions));
-    
-    // Show success toast
-    setShowToast(true);
-    
-    // Reset form
-    setFormData({
-      submissionType: "story",
-      name: "",
-      email: "",
-      phone: "",
-      title: "",
-      category: "",
-      description: "",
-      location: "",
-      deadline: "",
-      company: "",
-      salary: "",
-      image: null
-    });
-    
-    // Hide toast after 5 seconds
-    setTimeout(() => {
-      setShowToast(false);
-    }, 5000);
+    try {
+      let imageUrl = null;
+      
+      // Upload image if provided
+      if (formData.image) {
+        const storage = getStorage(app);
+        const imageRef = ref(storage, `submissions/${Date.now()}_${formData.image.name}`);
+        const snapshot = await uploadBytes(imageRef, formData.image);
+        imageUrl = await getDownloadURL(snapshot.ref);
+      }
+      
+      // Create submission object
+      const submission = {
+        title: formData.title,
+        type: formData.submissionType === "story" ? "News Story" : 
+              formData.submissionType === "job" ? "Job Offer" : "Opportunity",
+        category: formData.category,
+        author: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        status: "pending",
+        description: formData.description,
+        location: formData.location,
+        deadline: formData.deadline,
+        company: formData.company,
+        salary: formData.salary,
+        imageUrl: imageUrl,
+        submissionType: formData.submissionType
+      };
+      
+      // Save to Firebase
+      const submissionId = await create(COLLECTIONS.SUBMISSIONS, submission);
+      
+      // Create notification for new submission
+      await createNotification(
+        'submission',
+        'New Submission Received',
+        `New ${submission.type.toLowerCase()} submission "${submission.title}" received from ${submission.author}.`,
+        {
+          submissionId,
+          submissionType: submission.type,
+          submitter: {
+            name: submission.author,
+            email: submission.email
+          },
+          content: {
+            title: submission.title,
+            category: submission.category
+          }
+        }
+      );
+      
+      // Track successful submission
+      trackStorySubmit(formData.submissionType);
+      
+      // Show success toast
+      setShowToast(true);
+      
+      // Reset form
+      setFormData({
+        submissionType: "story",
+        name: "",
+        email: "",
+        phone: "",
+        title: "",
+        category: "",
+        description: "",
+        location: "",
+        deadline: "",
+        company: "",
+        salary: "",
+        image: null
+      });
+      
+      // Reset file input
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = '';
+      
+      // Hide toast after 5 seconds
+      setTimeout(() => {
+        setShowToast(false);
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error submitting story:', error);
+      alert('Failed to submit your story. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -99,7 +142,7 @@ export default function SubmitStory() {
             <div className="flex-1">
               <h4 className="text-[14px] font-bold text-[#0b1020] mb-1">Submission Received!</h4>
               <p className="text-[13px] text-[#5a6073]">
-                Thank you! Your submission has been received and will be reviewed shortly.
+                Thank you! Your submission has been received and will be reviewed by our admin team shortly.
               </p>
             </div>
             <button
@@ -385,9 +428,14 @@ export default function SubmitStory() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full px-8 py-4 bg-[#002fa7] text-white text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors"
+            disabled={isSubmitting}
+            className={`w-full px-8 py-4 text-white text-[14px] font-semibold rounded transition-colors ${
+              isSubmitting 
+                ? "bg-[#8b91a5] cursor-not-allowed" 
+                : "bg-[#002fa7] hover:bg-[#0026c4]"
+            }`}
           >
-            Submit for Review
+            {isSubmitting ? "Submitting..." : "Submit for Review"}
           </button>
 
           <p className="text-[12px] text-[#8b91a5] text-center mt-4">

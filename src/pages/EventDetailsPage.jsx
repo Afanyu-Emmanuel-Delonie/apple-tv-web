@@ -191,6 +191,33 @@ export default function EventDetailsPage() {
           </div>
         )}
 
+        {/* Video Section - Only show if videoUrl exists */}
+        {event.videoUrl && (
+          <div className="bg-white border border-[#e3e6ee] rounded-2xl p-6 sm:p-8 mb-8">
+            <h2 className="text-[24px] sm:text-[28px] font-playfair font-black text-[#0b1020] mb-6">Event Video</h2>
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+              <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
+                {event.videoUrl.includes('youtube.com') || event.videoUrl.includes('youtu.be') ? (
+                  <iframe
+                    src={event.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                    className="w-full h-full"
+                    frameBorder="0"
+                    allowFullScreen
+                    title={event.title}
+                  />
+                ) : (
+                  <video
+                    src={event.videoUrl}
+                    className="w-full h-full object-cover"
+                    controls
+                    poster={imageUrl}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
 
 
         {/* Registration CTA */}

@@ -109,6 +109,12 @@ export default function RegionalNews({ displayedArticleIds = [] }) {
                 Stay informed with stories from every corner of the nation.
               </p>
             </div>
+            <Link 
+              to="/regional-news" 
+              className="text-[14px] font-semibold text-[#002fa7] hover:text-[#0026c4] transition-colors whitespace-nowrap"
+            >
+              View All →
+            </Link>
           </div>
         </div>
 

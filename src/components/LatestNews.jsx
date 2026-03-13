@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getAll, COLLECTIONS } from "../services/firebase/firestore";
+import { formatHeadline, formatExcerpt, formatAuthor } from "../utils/textUtils";
 
 export default function LatestNews() {
   const [newsArticles, setNewsArticles] = useState([]);
@@ -44,11 +46,8 @@ export default function LatestNews() {
   const displayedArticles = newsArticles.slice(0, visibleCount);
   const featuredArticle = displayedArticles[0];
   const trendingArticles = displayedArticles.slice(1, 5);
-  const hasMore = visibleCount < newsArticles.length;
-
-  const handleLoadMore = () => {
-    setVisibleCount((prev) => prev + 4);
-  };
+  
+ 
 
   if (loading) {
     return (
@@ -114,13 +113,13 @@ export default function LatestNews() {
               </div>
             </div>
             <h2 className="text-[28px] font-playfair font-black leading-[1.2] mb-3 transition-colors" style={{ color: "#0b1020" }}>
-              {featuredArticle.title}
+              {formatHeadline(featuredArticle.title, 'featured')}
             </h2>
             <p className="text-[15px] text-[#5a6073] leading-relaxed mb-4">
-              {featuredArticle.excerpt}
+              {formatExcerpt(featuredArticle.excerpt, 'featured')}
             </p>
             <div className="flex items-center gap-3 text-[13px] text-[#8b91a5]">
-              <span className="font-medium text-[#2c3348]">{featuredArticle.author}</span>
+              <span className="font-medium text-[#2c3348]">{formatAuthor(featuredArticle.author)}</span>
               <span>•</span>
               <span>{featuredArticle.createdAt ? new Date(featuredArticle.createdAt.seconds * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently'}</span>
             </div>
@@ -158,7 +157,7 @@ export default function LatestNews() {
                   </div>
                   <div className="flex-1">
                     <h4 className="text-[15px] font-semibold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors line-clamp-2">
-                      {article.title}
+                      {formatHeadline(article.title, 'card')}
                     </h4>
                     <div className="flex items-center gap-2 text-[11px] text-[#8b91a5]">
                       <span>{article.createdAt ? new Date(article.createdAt.seconds * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently'}</span>
@@ -170,18 +169,6 @@ export default function LatestNews() {
           </div>
         )}
       </div>
-
-      {/* Load More Button */}
-      {hasMore && (
-        <div className="flex justify-center mt-12">
-          <button
-            onClick={handleLoadMore}
-            className="px-8 py-3 bg-[#002fa7] text-white text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors"
-          >
-            Load More Stories
-          </button>
-        </div>
-      )}
     </section>
   );
 }

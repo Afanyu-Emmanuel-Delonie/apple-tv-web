@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { initializeAnalytics } from '../../utils/analytics';
 
 /**
  * Firebase configuration object
@@ -18,6 +19,11 @@ const hasValidConfig = import.meta.env.VITE_FIREBASE_API_KEY &&
                      import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
 export const app = hasValidConfig ? initializeApp(firebaseConfig) : null;
+
+// Initialize Google Analytics if Firebase is configured
+if (app && typeof window !== 'undefined') {
+  initializeAnalytics(app);
+}
 
 // Export a flag to check if Firebase is properly configured
 export const isFirebaseConfigured = hasValidConfig;

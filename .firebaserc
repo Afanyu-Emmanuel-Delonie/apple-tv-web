@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "apple-fam-tv"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
+}

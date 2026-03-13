@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { navItems, moreItems, customStyles } from "../../constants/navigation";
+import { getCategoryPath } from "../../utils/categoryUtils";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -10,11 +11,11 @@ export default function Navbar() {
   const getNavPath = (label) => {
     const pathMap = {
       "Latest": "/",
-      "International": "/category/international",
-      "Business": "/category/business",
+      "International": "/international-news",
+      "Business": "/business-news",
       "Regional News": "/regional-news",
-      "Politics": "/category/politics",
-      "Entertainment": "/category/entertainment",
+      "Politics": getCategoryPath("Politics"),
+      "Entertainment": getCategoryPath("Entertainment"),
       "Events": "/events",
       "Opportunities": "/opportunities",
       "About Us": "/about-us"

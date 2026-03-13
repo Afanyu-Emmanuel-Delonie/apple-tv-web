@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { eventCategories } from "../constants/events";
 import { getAll, COLLECTIONS } from "../services/firebase/firestore";
 import OpportunitiesCTA from "../components/OpportunitiesCTA";
+import { formatEventTitle, formatExcerpt, formatLocation } from "../utils/textUtils";
 
 export default function Events() {
   const [events, setEvents] = useState([]);
@@ -130,7 +131,7 @@ export default function Events() {
                           </div>
                           <div className="absolute bottom-4 left-4 right-4">
                             <h3 className="text-[20px] font-playfair font-black text-white leading-[1.2] group-hover:text-[#ffd700] transition-colors">
-                              {event.title}
+                              {formatEventTitle(event.title)}
                             </h3>
                           </div>
                         </div>
@@ -171,7 +172,7 @@ export default function Events() {
                 const categoryColor = eventCategories.find(c => c.name === event.category)?.color || "#002fa7";
                 const imageUrl = event.imageUrl;
                 const formattedDate = event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'TBA';
-                const excerpt = event.description ? event.description.substring(0, 120) + '...' : 'No description available';
+                const excerpt = event.description ? formatExcerpt(event.description, 'card') : 'No description available';
                 return (
                   <Link to={`/event/${event.id}`} key={event.id}>
                     <article className="bg-white rounded-lg overflow-hidden border border-[#e3e6ee] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 group h-full">
@@ -199,13 +200,13 @@ export default function Events() {
                         </span>
                       </div>
                       <h3 className="text-[18px] font-playfair font-bold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors">
-                        {event.title}
+                        {formatEventTitle(event.title)}
                       </h3>
                       <p className="text-[14px] text-[#2c3348]/70 leading-[1.6] mb-3">
                         {excerpt}
                       </p>
                       <div className="flex items-center justify-between pt-3 border-t border-[#e3e6ee]">
-                        <span className="text-[12px] text-[#8b91a5]">{event.location}</span>
+                        <span className="text-[12px] text-[#8b91a5]">{formatLocation(event.location)}</span>
                         <span className="text-[13px] font-bold text-[#002fa7]">{event.price}</span>
                       </div>
                     </div>

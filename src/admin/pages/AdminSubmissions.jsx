@@ -3,99 +3,40 @@ import { CheckCircle, XCircle, Eye, Clock, RotateCcw, Inbox } from "lucide-react
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { getAll, update, routeSubmission, createSubmissionNotification, COLLECTIONS } from "../../services/firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
+import PageLoader from "../../components/PageLoader";
+import { usePageReloadLoader } from "../../hooks/useSessionLoader";
 
 export default function AdminSubmissions() {
+  const { user } = useAuth();
   const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const showLoader = usePageReloadLoader([loading], 1200);
 
-  // Load submissions from localStorage on mount
+  // Load submissions from Firebase on mount
   useEffect(() => {
-    const loadSubmissions = () => {
-      const storedSubmissions = JSON.parse(localStorage.getItem('submissions') || '[]');
-      
-      // Add default submissions if none exist
-      if (storedSubmissions.length === 0) {
-        const defaultSubmissions = [
-          { 
-            id: 1, 
-            title: "Breaking: New Government Policy Announced", 
-            type: "News Story", 
-            category: "Politics",
-            author: "John Doe", 
-            email: "john@example.com", 
-            phone: "+237 670 123 456",
-            date: "2 hours ago", 
-            status: "pending",
-            actionTimestamp: null,
-            description: "The government has announced a new policy regarding education reform. This comprehensive policy aims to improve the quality of education across all regions and make it more accessible to students from all backgrounds. The policy includes provisions for increased funding, teacher training programs, and infrastructure development.",
-            location: "Yaoundé, Cameroon",
-            image: "/assets/latest-news/g20-sumit.png"
-          },
-          { 
-            id: 2, 
-            title: "Software Developer Position at TechCorp", 
-            type: "Job Offer", 
-            category: "Full-time",
-            author: "Jane Smith", 
-            email: "jane@example.com", 
-            phone: "+237 680 234 567",
-            date: "5 hours ago", 
-            status: "pending",
-            actionTimestamp: null,
-            description: "We are looking for an experienced Software Developer to join our growing team. The ideal candidate should have strong skills in React, Node.js, and cloud technologies. This is a full-time position with competitive salary and benefits.",
-            location: "Douala, Cameroon",
-            company: "TechCorp Solutions",
-            salary: "800,000 - 1,200,000 XAF",
-            deadline: "March 30, 2024"
-          },
-          { 
-            id: 3, 
-            title: "Youth Leadership Summit 2024", 
-            type: "Event", 
-            category: "Conference",
-            author: "Mike Johnson", 
-            email: "mike@example.com", 
-            phone: "+237 690 345 678",
-            date: "1 day ago", 
-            status: "approved",
-            actionTimestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-            description: "Join us for the annual Youth Leadership Summit where young leaders from across Africa will gather to discuss innovation, entrepreneurship, and social impact. The event features keynote speakers, workshops, and networking opportunities.",
-            location: "Yaoundé Conference Center",
-            eventDate: "April 15-17, 2024",
-            price: "Free"
-          },
-          { 
-            id: 4, 
-            title: "Marketing Internship at StartupHub", 
-            type: "Opportunity", 
-            category: "Internship",
-            author: "Sarah Williams", 
-            email: "sarah@example.com", 
-            phone: "+237 670 456 789",
-            date: "2 days ago", 
-            status: "rejected",
-            actionTimestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-            description: "StartupHub is offering a 6-month marketing internship for students and recent graduates. This is a great opportunity to gain hands-on experience in digital marketing, social media management, and content creation.",
-            location: "Douala, Cameroon",
-            company: "StartupHub",
-            deadline: "March 25, 2024"
-          },
-        ];
-        localStorage.setItem('submissions', JSON.stringify(defaultSubmissions));
-        setSubmissions(defaultSubmissions);
-      } else {
-        setSubmissions(storedSubmissions);
+    const loadSubmissions = async () => {
+      try {
+        setLoading(true);
+        const data = await getAll(COLLECTIONS.SUBMISSIONS);
+        // Sort by creation date (newest first)
+        const sortedData = data.sort((a, b) => {
+          if (a.createdAt && b.createdAt) {
+            return b.createdAt.seconds - a.createdAt.seconds;
+          }
+          return 0;
+        });
+        setSubmissions(sortedData);
+      } catch (error) {
+        console.error('Error loading submissions:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     loadSubmissions();
   }, []);
-
-  // Save submissions to localStorage whenever they change
-  useEffect(() => {
-    if (submissions.length > 0) {
-      localStorage.setItem('submissions', JSON.stringify(submissions));
-    }
-  }, [submissions]);
 
   const [filterStatus, setFilterStatus] = useState("All");
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -137,9 +78,31 @@ export default function AdminSubmissions() {
     setShowRejectDialog(true);
   };
 
+  const getFormattedDate = (submission) => {
+    if (submission.createdAt && submission.createdAt.seconds) {
+      const date = new Date(submission.createdAt.seconds * 1000);
+      const now = new Date();
+      const diffInHours = (now - date) / (1000 * 60 * 60);
+      
+      if (diffInHours < 1) {
+        const minutes = Math.floor(diffInHours * 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInHours < 24) {
+        const hours = Math.floor(diffInHours);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(diffInHours / 24);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      }
+    }
+    return 'Recently';
+  };
+
   const canUndoAction = (submission) => {
     if (!submission.actionTimestamp || submission.status === "pending") return false;
-    const actionTime = new Date(submission.actionTimestamp);
+    const actionTime = submission.actionTimestamp.seconds ? 
+      new Date(submission.actionTimestamp.seconds * 1000) : 
+      new Date(submission.actionTimestamp);
     const now = new Date();
     const hoursPassed = (now - actionTime) / (1000 * 60 * 60);
     return hoursPassed < 1;
@@ -147,34 +110,117 @@ export default function AdminSubmissions() {
 
   const getMinutesRemaining = (submission) => {
     if (!submission.actionTimestamp) return 0;
-    const actionTime = new Date(submission.actionTimestamp);
+    const actionTime = submission.actionTimestamp.seconds ? 
+      new Date(submission.actionTimestamp.seconds * 1000) : 
+      new Date(submission.actionTimestamp);
     const now = new Date();
     const minutesPassed = (now - actionTime) / (1000 * 60);
     return Math.max(0, Math.floor(60 - minutesPassed));
   };
 
-  const confirmApprove = () => {
-    setSubmissions(submissions.map(s => 
-      s.id === submissionToAction.id ? { ...s, status: "approved", actionTimestamp: new Date().toISOString() } : s
-    ));
-    showToast(`"${submissionToAction.title}" has been approved successfully`, "success");
+  const getRoutingDestination = (submission) => {
+    const { submissionType, type, category } = submission;
+    
+    if (submissionType === 'story' || type === 'News Story') {
+      return { collection: 'Articles', section: `${category} News` };
+    } else if (submissionType === 'job' || type === 'Job Offer') {
+      return { collection: 'Opportunities', section: 'Job Opportunities' };
+    } else if (submissionType === 'opportunity' || type === 'Opportunity') {
+      if (category === 'Events' || submission.eventDate) {
+        return { collection: 'Events', section: 'Upcoming Events' };
+      } else {
+        return { collection: 'Opportunities', section: `${category} Opportunities` };
+      }
+    }
+    return { collection: 'Unknown', section: 'Unknown' };
+  };
+
+  const confirmApprove = async () => {
+    try {
+      // First route the submission to appropriate collection and create notification
+      const routingResult = await routeSubmission(submissionToAction);
+      
+      // Then update submission status with routing info
+      await update(COLLECTIONS.SUBMISSIONS, submissionToAction.id, {
+        status: "approved",
+        actionTimestamp: new Date(),
+        routedTo: routingResult.documentId,
+        targetCollection: routingResult.targetCollection,
+        notificationId: routingResult.notificationId
+      });
+      
+      // Create notification for submission approval
+      await createSubmissionNotification(submissionToAction, 'approved', user);
+      
+      setSubmissions(submissions.map(s => 
+        s.id === submissionToAction.id ? { 
+          ...s, 
+          status: "approved", 
+          actionTimestamp: { seconds: Date.now() / 1000 },
+          routedTo: routingResult.documentId,
+          targetCollection: routingResult.targetCollection
+        } : s
+      ));
+      
+      showToast(`"${submissionToAction.title}" has been approved, published, and added to messages for posting`, "success");
+    } catch (error) {
+      console.error('Error approving submission:', error);
+      if (error.message.includes('Duplicate')) {
+        showToast(`Cannot approve: ${error.message}`, 'error');
+      } else {
+        showToast('Failed to approve submission', 'error');
+      }
+    }
     setSubmissionToAction(null);
   };
 
-  const confirmReject = () => {
-    setSubmissions(submissions.map(s => 
-      s.id === submissionToAction.id ? { ...s, status: "rejected", actionTimestamp: new Date().toISOString() } : s
-    ));
-    showToast(`"${submissionToAction.title}" has been rejected`, "warning");
+  const confirmReject = async () => {
+    try {
+      await update(COLLECTIONS.SUBMISSIONS, submissionToAction.id, {
+        status: "rejected",
+        actionTimestamp: new Date()
+      });
+      
+      // Create notification for submission rejection
+      await createSubmissionNotification(submissionToAction, 'rejected', user);
+      
+      setSubmissions(submissions.map(s => 
+        s.id === submissionToAction.id ? { 
+          ...s, 
+          status: "rejected", 
+          actionTimestamp: { seconds: Date.now() / 1000 }
+        } : s
+      ));
+      
+      showToast(`"${submissionToAction.title}" has been rejected`, "warning");
+    } catch (error) {
+      console.error('Error rejecting submission:', error);
+      showToast('Failed to reject submission', 'error');
+    }
     setSubmissionToAction(null);
   };
 
-  const handleUndoAction = (submission) => {
-    setSubmissions(submissions.map(s => 
-      s.id === submission.id ? { ...s, status: "pending", actionTimestamp: null } : s
-    ));
-    showToast(`"${submission.title}" has been moved back to pending`, "info");
+  const handleUndoAction = async (submission) => {
+    try {
+      await update(COLLECTIONS.SUBMISSIONS, submission.id, {
+        status: "pending",
+        actionTimestamp: null
+      });
+      
+      setSubmissions(submissions.map(s => 
+        s.id === submission.id ? { ...s, status: "pending", actionTimestamp: null } : s
+      ));
+      
+      showToast(`"${submission.title}" has been moved back to pending`, "info");
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      showToast('Failed to undo action', 'error');
+    }
   };
+
+  if (showLoader) {
+    return <PageLoader isLoading={true} />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -193,7 +239,7 @@ export default function AdminSubmissions() {
         onClose={() => setShowApproveDialog(false)}
         onConfirm={confirmApprove}
         title="Approve Submission"
-        message={`Are you sure you want to approve "${submissionToAction?.title}"? This will publish the content to the public site.`}
+        message={`Are you sure you want to approve "${submissionToAction?.title}"? This will automatically publish the content to the appropriate section of the public site.`}
         confirmText="Approve"
         type="primary"
       />
@@ -235,88 +281,101 @@ export default function AdminSubmissions() {
       </div>
 
       {/* Submissions List */}
-      <div className="space-y-3 sm:space-y-4">
-        {filteredSubmissions.length === 0 ? (
-          <div className="bg-white rounded-lg border border-[#e3e6ee] p-12 text-center">
-            <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Inbox size={32} className="text-[#8b91a5]" />
-            </div>
-            <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Submissions Found</h3>
-            <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto">
-              {filterStatus === "All" 
-                ? "There are no submissions yet. New submissions will appear here for review."
-                : `No ${filterStatus.toLowerCase()} submissions found. Try selecting a different filter.`
-              }
-            </p>
-          </div>
-        ) : (
-          filteredSubmissions.map((submission) => (
-          <div key={submission.id} className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-              <div className="flex-1">
-                <h3 className="text-[16px] sm:text-[18px] font-bold text-[#0b1020] mb-2 pr-2">{submission.title}</h3>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[12px] sm:text-[13px] text-[#5a6073]">
-                  <span className="font-semibold">{submission.type}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span>By {submission.author}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span className="truncate">{submission.email}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span>{submission.date}</span>
-                </div>
-                {canUndoAction(submission) && (
-                  <div className="flex items-center gap-2 mt-2 text-[11px] sm:text-[12px] text-[#ea580c]">
-                    <Clock size={14} />
-                    <span>Undo available for {getMinutesRemaining(submission)} more minutes</span>
-                  </div>
-                )}
+      {loading ? (
+        <div className="bg-white rounded-lg border border-[#e3e6ee] p-12 text-center">
+          <div className="inline-block w-8 h-8 border-4 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[14px] text-[#5a6073]">Loading submissions...</p>
+        </div>
+      ) : (
+        <div className="space-y-3 sm:space-y-4">
+          {filteredSubmissions.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e3e6ee] p-12 text-center">
+              <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Inbox size={32} className="text-[#8b91a5]" />
               </div>
-              <span className={`px-3 py-1 text-[10px] sm:text-[11px] font-bold uppercase rounded whitespace-nowrap self-start ${getStatusColor(submission.status)}`}>
-                {submission.status}
-              </span>
+              <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Submissions Found</h3>
+              <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto">
+                {filterStatus === "All" 
+                  ? "There are no submissions yet. New submissions will appear here for review."
+                  : `No ${filterStatus.toLowerCase()} submissions found. Try selecting a different filter.`
+                }
+              </p>
             </div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => handleViewDetails(submission)}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors"
-              >
-                <Eye size={16} />
-                <span>View Details</span>
-              </button>
-              {submission.status === "pending" && (
-                <>
+          ) : (
+            filteredSubmissions.map((submission) => (
+              <div key={submission.id} className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-[16px] sm:text-[18px] font-bold text-[#0b1020] mb-2 pr-2">{submission.title}</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[12px] sm:text-[13px] text-[#5a6073]">
+                      <span className="font-semibold">{submission.type}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span>By {submission.author}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="truncate">{submission.email}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span>{getFormattedDate(submission)}</span>
+                    </div>
+                    {submission.status === "pending" && (
+                      <div className="flex items-center gap-2 mt-2 text-[11px] sm:text-[12px] text-[#002fa7]">
+                        <div className="w-2 h-2 rounded-full bg-[#002fa7]" />
+                        <span>Will be published to: {getRoutingDestination(submission).section}</span>
+                      </div>
+                    )}
+                    {canUndoAction(submission) && (
+                      <div className="flex items-center gap-2 mt-2 text-[11px] sm:text-[12px] text-[#ea580c]">
+                        <Clock size={14} />
+                        <span>Undo available for {getMinutesRemaining(submission)} more minutes</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className={`px-3 py-1 text-[10px] sm:text-[11px] font-bold uppercase rounded whitespace-nowrap self-start ${getStatusColor(submission.status)}`}>
+                    {submission.status}
+                  </span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <button
-                    onClick={() => handleApproveClick(submission)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
+                    onClick={() => handleViewDetails(submission)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors"
                   >
-                    <CheckCircle size={16} />
-                    <span>Approve</span>
+                    <Eye size={16} />
+                    <span>View Details</span>
                   </button>
-                  <button
-                    onClick={() => handleRejectClick(submission)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
-                  >
-                    <XCircle size={16} />
-                    <span>Reject</span>
-                  </button>
-                </>
-              )}
-              {(submission.status === "approved" || submission.status === "rejected") && canUndoAction(submission) && (
-                <button
-                  onClick={() => handleUndoAction(submission)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
-                >
-                  <RotateCcw size={16} />
-                  <span className="hidden sm:inline">Undo {submission.status === "approved" ? "Approval" : "Rejection"}</span>
-                  <span className="sm:hidden">Undo</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )))
-        }
-      </div>
+                  {submission.status === "pending" && (
+                    <>
+                      <button
+                        onClick={() => handleApproveClick(submission)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
+                      >
+                        <CheckCircle size={16} />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => handleRejectClick(submission)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
+                      >
+                        <XCircle size={16} />
+                        <span>Reject</span>
+                      </button>
+                    </>
+                  )}
+                  {(submission.status === "approved" || submission.status === "rejected") && canUndoAction(submission) && (
+                    <button
+                      onClick={() => handleUndoAction(submission)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
+                    >
+                      <RotateCcw size={16} />
+                      <span className="hidden sm:inline">Undo {submission.status === "approved" ? "Approval" : "Rejection"}</span>
+                      <span className="sm:hidden">Undo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <div className="mt-4 text-[12px] sm:text-[13px] text-[#5a6073]">
         Showing {filteredSubmissions.length} of {submissions.length} submissions
@@ -332,21 +391,33 @@ export default function AdminSubmissions() {
         {selectedSubmission && (
           <div className="p-6">
             {/* Image if available */}
-            {selectedSubmission.image && (
+            {selectedSubmission.imageUrl && (
               <div className="mb-6">
                 <img
-                  src={selectedSubmission.image}
+                  src={selectedSubmission.imageUrl}
                   alt={selectedSubmission.title}
                   className="w-full h-64 object-cover rounded-lg"
                 />
               </div>
             )}
 
-            {/* Status Badge */}
-            <div className="mb-6">
+            {/* Status Badge and Routing Info */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
               <span className={`px-4 py-2 text-[12px] font-bold uppercase rounded ${getStatusColor(selectedSubmission.status)}`}>
                 {selectedSubmission.status}
               </span>
+              {selectedSubmission.status === "pending" && (
+                <div className="flex items-center gap-2 text-[13px] text-[#002fa7]">
+                  <div className="w-2 h-2 rounded-full bg-[#002fa7]" />
+                  <span>Will publish to: <strong>{getRoutingDestination(selectedSubmission).section}</strong></span>
+                </div>
+              )}
+              {selectedSubmission.status === "approved" && selectedSubmission.routedTo && (
+                <div className="flex items-center gap-2 text-[13px] text-[#047857]">
+                  <div className="w-2 h-2 rounded-full bg-[#047857]" />
+                  <span>Published to: <strong>{getRoutingDestination(selectedSubmission).section}</strong></span>
+                </div>
+              )}
             </div>
 
             {/* Title */}
@@ -435,7 +506,7 @@ export default function AdminSubmissions() {
             {/* Submission Date */}
             <div className="mb-6">
               <label className="block text-[13px] font-semibold text-[#8b91a5] mb-1">Submitted</label>
-              <p className="text-[14px] text-[#2c3348]">{selectedSubmission.date}</p>
+              <p className="text-[14px] text-[#2c3348]">{getFormattedDate(selectedSubmission)}</p>
             </div>
 
             {/* Action Buttons */}

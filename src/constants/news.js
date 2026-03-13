@@ -103,4 +103,5 @@ export const categories = [
   { name: "Business", color: "#047857" },
   { name: "Entertainment", color: "#7c3aed" },
   { name: "Politics", color: "#dc2626" },
+  { name: "Regional", color: "#ea580c" },
 ];

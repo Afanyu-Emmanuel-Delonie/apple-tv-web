@@ -186,6 +186,35 @@ export default function OpportunityDetailsPage() {
               </div>
             )}
 
+            {/* Video Section - Only show if videoUrl exists */}
+            {opportunity.videoUrl && (
+              <div className="bg-white border border-[#e3e6ee] rounded-lg p-6 sm:p-8 mb-6">
+                <h2 className="text-[20px] sm:text-[24px] font-playfair font-black text-[#0b1020] mb-4">
+                  About This Role (Video)
+                </h2>
+                <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                  <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
+                    {opportunity.videoUrl.includes('youtube.com') || opportunity.videoUrl.includes('youtu.be') ? (
+                      <iframe
+                        src={opportunity.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allowFullScreen
+                        title={opportunity.title}
+                      />
+                    ) : (
+                      <video
+                        src={opportunity.videoUrl}
+                        className="w-full h-full object-cover"
+                        controls
+                        poster={opportunity.imageUrl}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Application Instructions */}
             <div className="bg-[#f6f7fb] border border-[#e3e6ee] rounded-lg p-6 sm:p-8">
               <h2 className="text-[18px] sm:text-[20px] font-playfair font-black text-[#0b1020] mb-4">

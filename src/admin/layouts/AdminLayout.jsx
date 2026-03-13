@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, User, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { getAll, COLLECTIONS } from "../../services/firebase/firestore";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import OpportunityExpirationJob from "../../components/OpportunityExpirationJob";
@@ -16,6 +17,38 @@ export default function AdminLayout() {
   const [isMobile, setIsMobile] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [toast, setToast] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Load notifications from Firebase
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true);
+        const data = await getAll(COLLECTIONS.NOTIFICATIONS);
+        // Sort by creation date (newest first) and take only the latest 5
+        const sortedData = data
+          .sort((a, b) => {
+            if (a.createdAt && b.createdAt) {
+              return b.createdAt.seconds - a.createdAt.seconds;
+            }
+            return 0;
+          })
+          .slice(0, 5);
+        setNotifications(sortedData);
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+
+    loadNotifications();
+    
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -32,6 +65,64 @@ export default function AdminLayout() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const getFormattedTime = (notification) => {
+    if (notification.createdAt && notification.createdAt.seconds) {
+      const date = new Date(notification.createdAt.seconds * 1000);
+      const now = new Date();
+      const diffInHours = (now - date) / (1000 * 60 * 60);
+      
+      if (diffInHours < 1) {
+        const minutes = Math.floor(diffInHours * 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInHours < 24) {
+        const hours = Math.floor(diffInHours);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(diffInHours / 24);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      }
+    }
+    return 'Recently';
+  };
+
+  const getNotificationLink = (notification) => {
+    // For content creation/modification notifications
+    if (['article', 'event', 'opportunity'].includes(notification.type)) {
+      switch (notification.type) {
+        case "article":
+          return "/admin/articles";
+        case "event":
+          return "/admin/events";
+        case "opportunity":
+          return "/admin/opportunities";
+        default:
+          return "/admin/dashboard";
+      }
+    }
+    
+    // For approved content notifications
+    if (notification.type === "content_approved" && notification.metadata?.routedTo) {
+      const { collection } = notification.metadata.routedTo;
+      switch (collection) {
+        case "articles":
+          return "/admin/articles";
+        case "events":
+          return "/admin/events";
+        case "opportunities":
+          return "/admin/opportunities";
+        default:
+          return "/admin/dashboard";
+      }
+    }
+    
+    // For submission notifications
+    if (notification.type === "submission") {
+      return "/admin/submissions";
+    }
+    
+    return "/admin/notifications";
   };
 
   const handleLogout = async () => {
@@ -66,50 +157,12 @@ export default function AdminLayout() {
     return user?.displayName || user?.name || user?.email || 'User';
   };
 
-  const notifications = [
-    {
-      id: 1,
-      type: "submission",
-      title: "New Story Submission",
-      message: "John Doe submitted a new story for review",
-      time: "5 minutes ago",
-      unread: true,
-      link: "/admin/submissions"
-    },
-    {
-      id: 2,
-      type: "user",
-      title: "New User Registration",
-      message: "Sarah Smith registered as an Author",
-      time: "1 hour ago",
-      unread: true,
-      link: "/admin/users"
-    },
-    {
-      id: 3,
-      type: "event",
-      title: "Event Expiring Soon",
-      message: "Tech Summit 2024 will expire in 3 days",
-      time: "2 hours ago",
-      unread: false,
-      link: "/admin/events"
-    },
-    {
-      id: 4,
-      type: "opportunity",
-      title: "Opportunity Deadline",
-      message: "Software Engineer position deadline is tomorrow",
-      time: "5 hours ago",
-      unread: false,
-      link: "/admin/opportunities"
-    },
-  ];
-
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const unreadCount = notifications.filter(n => n.status === "unread").length;
 
   const handleNotificationClick = (notification) => {
     setNotificationsOpen(false);
-    navigate(notification.link);
+    const link = getNotificationLink(notification);
+    navigate(link);
   };
 
   const handleViewAll = () => {
@@ -277,32 +330,44 @@ export default function AdminLayout() {
 
                     {/* Notifications List */}
                     <div className="max-h-[400px] overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`px-4 py-3 border-b border-[#e3e6ee] hover:bg-[#f6f7fb] transition-colors cursor-pointer ${
-                            notification.unread ? "bg-[#002fa7]/5" : ""
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                              notification.unread ? "bg-[#002fa7]" : "bg-transparent"
-                            }`} />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-semibold text-[#0b1020] mb-1">
-                                {notification.title}
-                              </h4>
-                              <p className="text-[12px] text-[#5a6073] mb-1">
-                                {notification.message}
-                              </p>
-                              <span className="text-[11px] text-[#8b91a5]">
-                                {notification.time}
-                              </span>
+                      {loadingNotifications ? (
+                        <div className="px-4 py-8 text-center">
+                          <div className="inline-block w-4 h-4 border-2 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-2" />
+                          <p className="text-[12px] text-[#5a6073]">Loading notifications...</p>
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                          <Bell size={24} className="mx-auto text-[#8b91a5] mb-2" />
+                          <p className="text-[12px] text-[#5a6073]">No notifications yet</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`px-4 py-3 border-b border-[#e3e6ee] hover:bg-[#f6f7fb] transition-colors cursor-pointer ${
+                              notification.status === "unread" ? "bg-[#002fa7]/5" : ""
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                notification.status === "unread" ? "bg-[#002fa7]" : "bg-transparent"
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-[13px] font-semibold text-[#0b1020] mb-1">
+                                  {notification.title}
+                                </h4>
+                                <p className="text-[12px] text-[#5a6073] mb-1 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                                <span className="text-[11px] text-[#8b91a5]">
+                                  {getFormattedTime(notification)}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
 
                     {/* Footer */}

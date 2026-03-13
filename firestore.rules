@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isEditor() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor');
+    }
+    
+    function isAuthor() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'author');
+    }
+    
+    function isOwner(resource) {
+      return isAuthenticated() && resource.data.createdBy == request.auth.uid;
+    }
+    
+    function isValidStatus(status) {
+      return status in ['draft', 'active', 'inactive', 'expired'];
+    }
+    
+    function isValidRole(role) {
+      return role in ['admin', 'editor', 'author'];
+    }
+    
+    // Users collection - Admin and self access
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
+      allow create: if isAdmin() && isValidRole(request.resource.data.role);
+      allow update: if isAdmin() || (request.auth.uid == userId && !('role' in request.resource.data.diff(resource.data)));
+      allow delete: if isAdmin() && request.auth.uid != userId; // Admins can't delete themselves
+    }
+    
+    // Articles collection
+    match /articles/{articleId} {
+      // Public read access for active articles
+      allow read: if resource.data.status == 'active' || isAuthor();
+      
+      // Create: Authors and above can create
+      allow create: if isAuthor() && 
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Update: Admins/Editors can update any, Authors can update their own
+      allow update: if (isEditor() || (isAuthor() && isOwner(resource))) &&
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == resource.data.createdBy && // Can't change creator
+                       request.resource.data.createdAt == resource.data.createdAt; // Can't change creation time
+      
+      // Delete: Admins/Editors can delete any, Authors can delete their own
+      allow delete: if isEditor() || (isAuthor() && isOwner(resource));
+    }
+    
+    // Events collection
+    match /events/{eventId} {
+      // Public read access for active events
+      allow read: if resource.data.status == 'active' || isAuthor();
+      
+      // Create: Authors and above can create
+      allow create: if isAuthor() && 
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Update: Admins/Editors can update any, Authors can update their own
+      allow update: if (isEditor() || (isAuthor() && isOwner(resource))) &&
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == resource.data.createdBy &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Delete: Admins/Editors can delete any, Authors can delete their own
+      allow delete: if isEditor() || (isAuthor() && isOwner(resource));
+    }
+    
+    // Opportunities collection
+    match /opportunities/{opportunityId} {
+      // Public read access for active opportunities
+      allow read: if resource.data.status == 'active' || isAuthor();
+      
+      // Create: Authors and above can create
+      allow create: if isAuthor() && 
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Update: Admins/Editors can update any, Authors can update their own
+      allow update: if (isEditor() || (isAuthor() && isOwner(resource))) &&
+                       isValidStatus(request.resource.data.status) &&
+                       request.resource.data.createdBy == resource.data.createdBy &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Delete: Admins/Editors can delete any, Authors can delete their own
+      allow delete: if isEditor() || (isAuthor() && isOwner(resource));
+    }
+    
+    // Submissions collection - Public can create, Editors+ can manage
+    match /submissions/{submissionId} {
+      // Read: Editors and above, or submission creator
+      allow read: if isEditor() || (isAuthenticated() && isOwner(resource));
+      
+      // Create: Anyone can submit (including anonymous users)
+      allow create: if request.resource.data.status == 'pending' &&
+                       request.resource.data.createdAt == request.time &&
+                       (!isAuthenticated() || request.resource.data.createdBy == request.auth.uid);
+      
+      // Update: Only Editors and above (for approval/rejection)
+      allow update: if isEditor() &&
+                       request.resource.data.createdBy == resource.data.createdBy &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Delete: Only Admins
+      allow delete: if isAdmin();
+    }
+    
+    // Notifications collection - Admin system
+    match /notifications/{notificationId} {
+      // Read: Authenticated users can read their notifications or admins can read all
+      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid in resource.data.recipients);
+      
+      // Create: Only system/admin can create notifications
+      allow create: if isAdmin() &&
+                       request.resource.data.createdAt == request.time;
+      
+      // Update: Only admins (for marking as read, etc.)
+      allow update: if isAdmin() ||
+                       (isAuthenticated() && request.auth.uid in resource.data.recipients);
+      
+      // Delete: Only admins
+      allow delete: if isAdmin();
+    }
+    
+    // Analytics collection - Admin only
+    match /analytics/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Settings collection - Admin only
+    match /settings/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Logs collection - Admin only
+    match /logs/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Backup collection - Admin only
+    match /backups/{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

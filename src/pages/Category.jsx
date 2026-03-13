@@ -5,16 +5,11 @@ import { categories } from '../constants/news'
 import { Link } from 'react-router-dom'
 import OpportunitiesCTA from '../components/OpportunitiesCTA'
 import { getAll, COLLECTIONS } from '../services/firebase/firestore'
-
-const prettyName = (value) =>
-  value
-    ?.split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+import { slugToCategory, categoryToSlug } from '../utils/categoryUtils'
 
 export default function Category() {
   const { slug } = useParams()
-  const categoryName = prettyName(slug)
+  const categoryName = slugToCategory(slug)
   const [currentPage, setCurrentPage] = useState(1)
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,11 +38,11 @@ export default function Category() {
 
   const getGradientBackground = (title) => {
     const gradients = [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #002fa7 0%, #001f73 100%)',
+      'linear-gradient(135deg, #1e40af 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #3b82f6 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #2563eb 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #1d4ed8 0%, #002fa7 100%)',
       'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
       'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
       'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
@@ -285,7 +280,7 @@ export default function Category() {
           <p className="text-[15px] text-[#5a6073] text-center mb-8">Discover more stories across different topics</p>
           <div className="flex flex-wrap justify-center gap-3">
             {categories.filter(cat => cat.name !== 'Latest' && cat.name.toLowerCase() !== categoryName.toLowerCase()).map((category) => {
-              const categorySlug = category.name.toLowerCase().replace(/\s+/g, '-')
+              const categorySlug = categoryToSlug(category.name)
               return (
                 <Link
                   key={category.name}

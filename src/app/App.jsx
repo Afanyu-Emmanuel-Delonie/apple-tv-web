@@ -2,6 +2,9 @@ import { Routes, Route } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout.jsx'
 import Home from '../pages/Home.jsx'
 import Category from '../pages/Category.jsx'
+import InternationalNewsPage from '../pages/InternationalNewsPage.jsx'
+import BusinessNewsPage from '../pages/BusinessNewsPage.jsx'
+import RegionalNewsPage from '../pages/RegionalNewsPage.jsx'
 import ArticleDetailsPage from '../pages/ArticleDetailsPage.jsx'
 import EventDetailsPage from '../pages/EventDetailsPage.jsx'
 import OpportunityDetailsPage from '../pages/OpportunityDetailsPage.jsx'
@@ -9,10 +12,13 @@ import Opportunities from '../pages/Opportunities.jsx'
 import Events from '../pages/Events.jsx'
 import AboutUs from '../pages/AboutUs.jsx'
 import SubmitStory from '../pages/SubmitStory.jsx'
+import PrivacyPolicy from '../pages/PrivacyPolicy.jsx'
+import TermsOfService from '../pages/TermsOfService.jsx'
 import NotFound from '../pages/NotFound.jsx'
 import NetworkError from '../pages/NetworkError.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
 import { useNetworkStatus } from '../hooks/useNetworkStatus.js'
+import { usePageTracking } from '../hooks/useAnalytics.js'
 
 // Admin imports
 import AdminLogin from '../admin/pages/AdminLogin.jsx'
@@ -33,6 +39,9 @@ import RoleProtectedRoute from '../admin/components/RoleProtectedRoute.jsx'
 
 export default function App() {
   const isOnline = useNetworkStatus();
+  
+  // Track page views automatically
+  usePageTracking();
 
   if (!isOnline) {
     return <NetworkError />;
@@ -46,6 +55,9 @@ export default function App() {
         <Route element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="category/:slug" element={<Category />} />
+          <Route path="international-news" element={<InternationalNewsPage />} />
+          <Route path="business-news" element={<BusinessNewsPage />} />
+          <Route path="regional-news" element={<RegionalNewsPage />} />
           <Route path="article/:id" element={<ArticleDetailsPage />} />
           <Route path="event/:id" element={<EventDetailsPage />} />
           <Route path="opportunity/:id" element={<OpportunityDetailsPage />} />
@@ -53,6 +65,8 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="about-us" element={<AboutUs />} />
           <Route path="submit-story" element={<SubmitStory />} />
+          <Route path="privacy" element={<PrivacyPolicy />} />
+          <Route path="terms" element={<TermsOfService />} />
         </Route>
 
         {/* Admin Routes */}

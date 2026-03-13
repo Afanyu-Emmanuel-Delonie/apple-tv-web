@@ -3,6 +3,13 @@ const CLOUDINARY_CLOUD_NAME = 'dvmhx5kku';
 const CLOUDINARY_UPLOAD_PRESET = 'apple-fam-tv'; // We'll create this
 const CLOUDINARY_API_KEY = '155233366712278';
 
+import { 
+  compressImage as compressImageUtil, 
+  generateImageVariants, 
+  validateImage,
+  IMAGE_CONFIG 
+} from '../../utils/imageCompression';
+
 /**
  * Storage paths (for organization in Cloudinary)
  */
@@ -124,26 +131,69 @@ export async function uploadFile(file, path, filename = null) {
 }
 
 /**
- * Upload image with compression
+ * Upload image with advanced compression and optimization
  * @param {File} file - Image file
  * @param {string} path - Storage path
- * @param {number} maxWidth - Maximum width (optional)
- * @returns {Promise<string>} Download URL
+ * @param {Object} options - Upload options
+ * @returns {Promise<Object>} Upload result with compression info
  */
-export async function uploadImage(file, path, maxWidth = 1200) {
-  console.log('🚀 uploadImage called');
+export async function uploadImage(file, path, options = {}) {
+  console.log('🚀 Advanced uploadImage called');
   console.log('Original file:', file.name, '-', (file.size / 1024 / 1024).toFixed(2), 'MB');
   
-  // Compress image before upload
-  const compressedBlob = await compressImage(file, maxWidth, 0.8);
-  console.log('✅ Compression complete, creating file object...');
+  const {
+    quality = IMAGE_CONFIG.QUALITY.FEATURED,
+    maxWidth = IMAGE_CONFIG.DIMENSIONS.FEATURED.width,
+    maxHeight = IMAGE_CONFIG.DIMENSIONS.FEATURED.height,
+    filename = null,
+    generateVariants = false
+  } = options;
   
-  const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
-  console.log('✅ File object created, starting upload...');
-  
-  const url = await uploadFile(compressedFile, path);
-  console.log('🎉 Upload complete! URL:', url);
-  return url;
+  if (generateVariants) {
+    // Generate multiple variants for responsive images
+    console.log('📸 Generating image variants...');
+    const variants = await generateImageVariants(file);
+    
+    const uploadPromises = Object.entries(variants).map(async ([variantName, variantData]) => {
+      const variantFilename = filename 
+        ? `${filename}_${variantName}` 
+        : `${file.name.split('.')[0]}_${variantName}`;
+      
+      const result = await uploadFile(variantData.file, path, variantFilename);
+      return {
+        [variantName]: {
+          ...result,
+          compressionInfo: variantData
+        }
+      };
+    });
+    
+    const uploadResults = await Promise.all(uploadPromises);
+    const combinedResults = uploadResults.reduce((acc, result) => ({ ...acc, ...result }), {});
+    
+    console.log('🎉 All variants uploaded successfully!');
+    return {
+      variants: combinedResults,
+      primaryUrl: combinedResults.featured?.url || combinedResults.original?.url
+    };
+  } else {
+    // Single image compression and upload
+    console.log('🖼️ Compressing single image...');
+    const compressionResult = await compressImageUtil(file, {
+      quality,
+      maxWidth,
+      maxHeight
+    });
+    
+    console.log('✅ Compression complete, uploading...');
+    const uploadResult = await uploadFile(compressionResult.file, path, filename);
+    
+    console.log('🎉 Upload complete!');
+    return {
+      ...uploadResult,
+      compressionInfo: compressionResult
+    };
+  }
 }
 
 /**

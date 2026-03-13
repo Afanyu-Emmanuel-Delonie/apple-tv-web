@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Briefcase, RefreshCw, Upload, X } from "lucide-react";
-import { getAll, create, update, remove, COLLECTIONS } from "../../services/firebase/firestore";
+import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Briefcase, RefreshCw, Upload, X, Lock } from "lucide-react";
+import { getAll, createWithDuplicateCheck, updateWithDuplicateCheck, remove, update, createContentNotification, COLLECTIONS } from "../../services/firebase/firestore";
 import { uploadImage, STORAGE_PATHS } from "../../services/firebase/storage";
 import { processExpiredOpportunities, getDaysUntilDeletion } from "../../services/firebase/opportunityService";
+import { useAuth } from "../../contexts/AuthContext";
+import { hasPermission, canModifyItem, filterItemsByPermission, PERMISSIONS } from "../../utils/permissions";
+import PageLoader from "../../components/PageLoader";
+import { usePageReloadLoader } from "../../hooks/useSessionLoader";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminOpportunities() {
+  const { user } = useAuth();
   const [opportunitiesList, setOpportunitiesList] = useState([]);
+  const [filteredOpportunities, setFilteredOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const showLoader = usePageReloadLoader([loading], 1200);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -30,6 +37,21 @@ export default function AdminOpportunities() {
     // Check for expired opportunities on mount
     checkExpiredOpportunities();
   }, []);
+
+  // Filter opportunities based on user permissions and search/filter criteria
+  useEffect(() => {
+    let filtered = filterItemsByPermission(opportunitiesList, user, 'opportunity');
+    
+    // Apply search and category filters
+    filtered = filtered.filter(opp => {
+      const matchesSearch = opp.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "All" || opp.category === filterCategory;
+      const matchesStatus = filterStatus === "All" || opp.status === filterStatus.toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+    
+    setFilteredOpportunities(filtered);
+  }, [opportunitiesList, user, searchTerm, filterCategory, filterStatus]);
 
   const checkExpiredOpportunities = async () => {
     try {
@@ -57,16 +79,14 @@ export default function AdminOpportunities() {
     }
   };
 
-  const filteredOpportunities = opportunitiesList.filter(opp => {
-    const matchesSearch = opp.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "All" || opp.category === filterCategory;
-    const matchesStatus = filterStatus === "All" || opp.status === filterStatus.toLowerCase();
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
   const addToast = (message, type) => {
     setToast({ message, type });
   };
+
+  // Check permissions
+  const canCreateOpportunity = hasPermission(user, PERMISSIONS.CREATE_OPPORTUNITY);
+  const canEditOpportunity = (opp) => canModifyItem(user, opp, 'edit', 'opportunity');
+  const canDeleteOpportunity = (opp) => canModifyItem(user, opp, 'delete', 'opportunity');
 
   const getDaysUntilDeletion = (expiryDate) => {
     if (!expiryDate) return null;
@@ -78,6 +98,11 @@ export default function AdminOpportunities() {
   };
 
   const handleAdd = () => {
+    if (!canCreateOpportunity) {
+      addToast('You do not have permission to create opportunities', 'error');
+      return;
+    }
+    
     setModalMode("add");
     setFormData({ 
       title: "", 
@@ -91,7 +116,8 @@ export default function AdminOpportunities() {
       requirements: "", 
       benefits: "",
       applicationLink: "", 
-      imageUrl: "" 
+      imageUrl: "",
+      author: user?.displayName || user?.name || ""
     });
     setImageFile(null);
     setImagePreview(null);
@@ -105,6 +131,11 @@ export default function AdminOpportunities() {
   };
 
   const handleEdit = (opp) => {
+    if (!canEditOpportunity(opp)) {
+      addToast('You do not have permission to edit this opportunity', 'error');
+      return;
+    }
+    
     setModalMode("edit");
     setFormData(opp);
     setImageFile(null);
@@ -113,6 +144,11 @@ export default function AdminOpportunities() {
   };
 
   const handleDelete = (opp) => {
+    if (!canDeleteOpportunity(opp)) {
+      addToast('You do not have permission to delete this opportunity', 'error');
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: "Delete Opportunity",
@@ -122,6 +158,10 @@ export default function AdminOpportunities() {
         try {
           await remove(COLLECTIONS.OPPORTUNITIES, opp.id);
           setOpportunitiesList(opportunitiesList.filter(o => o.id !== opp.id));
+          
+          // Create notification for deleted opportunity
+          await createContentNotification(COLLECTIONS.OPPORTUNITIES, opp, user, 'deleted');
+          
           addToast("Opportunity deleted successfully", "success");
         } catch (error) {
           console.error('Error deleting opportunity:', error);
@@ -142,9 +182,14 @@ export default function AdminOpportunities() {
       onConfirm: async () => {
         try {
           await update(COLLECTIONS.OPPORTUNITIES, opp.id, { status: "expired", expiryDate: new Date().toISOString() });
+          const expiredOpportunity = { ...opp, status: "expired", expiryDate: new Date().toISOString() };
           setOpportunitiesList(opportunitiesList.map(o => 
-            o.id === opp.id ? { ...o, status: "expired", expiryDate: new Date().toISOString() } : o
+            o.id === opp.id ? expiredOpportunity : o
           ));
+          
+          // Create notification for expired opportunity
+          await createContentNotification(COLLECTIONS.OPPORTUNITIES, expiredOpportunity, user, 'expired');
+          
           addToast("Opportunity expired successfully", "warning");
         } catch (error) {
           console.error('Error expiring opportunity:', error);
@@ -159,9 +204,14 @@ export default function AdminOpportunities() {
   const handleReactivate = async (opp) => {
     try {
       await update(COLLECTIONS.OPPORTUNITIES, opp.id, { status: "active", expiryDate: null });
+      const reactivatedOpportunity = { ...opp, status: "active", expiryDate: null };
       setOpportunitiesList(opportunitiesList.map(o => 
-        o.id === opp.id ? { ...o, status: "active", expiryDate: null } : o
+        o.id === opp.id ? reactivatedOpportunity : o
       ));
+      
+      // Create notification for reactivated opportunity
+      await createContentNotification(COLLECTIONS.OPPORTUNITIES, reactivatedOpportunity, user, 'reactivated');
+      
       addToast("Opportunity reactivated successfully", "success");
     } catch (error) {
       console.error('Error reactivating opportunity:', error);
@@ -205,16 +255,49 @@ export default function AdminOpportunities() {
       }
 
       if (modalMode === "add") {
-        const newOppData = { ...formData, imageUrl, status: "active", expiryDate: null };
-        const newId = await create(COLLECTIONS.OPPORTUNITIES, newOppData);
-        setOpportunitiesList([{ id: newId, ...newOppData }, ...opportunitiesList]);
-        addToast("Opportunity added successfully", "success");
+        const newOppData = { 
+          ...formData, 
+          imageUrl, 
+          status: "active", 
+          expiryDate: null,
+          createdBy: user?.uid,
+          author: formData.author || user?.displayName || user?.name || "Unknown"
+        };
+        try {
+          const newId = await createWithDuplicateCheck(COLLECTIONS.OPPORTUNITIES, newOppData, false);
+          const newOpportunity = { id: newId, ...newOppData };
+          setOpportunitiesList([newOpportunity, ...opportunitiesList]);
+          
+          // Create notification for new opportunity
+          await createContentNotification(COLLECTIONS.OPPORTUNITIES, newOpportunity, user, 'created');
+          
+          addToast("Opportunity added successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       } else if (modalMode === "edit") {
         const { id, createdAt, updatedAt, ...updateData } = formData;
         const updatedData = { ...updateData, imageUrl };
-        await update(COLLECTIONS.OPPORTUNITIES, formData.id, updatedData);
-        setOpportunitiesList(opportunitiesList.map(o => o.id === formData.id ? { ...formData, imageUrl } : o));
-        addToast("Opportunity updated successfully", "success");
+        try {
+          await updateWithDuplicateCheck(COLLECTIONS.OPPORTUNITIES, formData.id, updatedData, false);
+          const updatedOpportunity = { ...formData, imageUrl };
+          setOpportunitiesList(opportunitiesList.map(o => o.id === formData.id ? updatedOpportunity : o));
+          
+          // Create notification for updated opportunity
+          await createContentNotification(COLLECTIONS.OPPORTUNITIES, updatedOpportunity, user, 'updated');
+          
+          addToast("Opportunity updated successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       }
       setShowModal(false);
       setImageFile(null);
@@ -226,6 +309,10 @@ export default function AdminOpportunities() {
       setUploading(false);
     }
   };
+
+  if (showLoader) {
+    return <PageLoader isLoading={true} />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -257,7 +344,13 @@ export default function AdminOpportunities() {
           </button>
           <button 
             onClick={handleAdd}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
+            disabled={!canCreateOpportunity}
+            className={`flex items-center justify-center gap-2 px-6 py-3 text-[13px] sm:text-[14px] font-semibold rounded transition-colors whitespace-nowrap ${
+              canCreateOpportunity 
+                ? "bg-[#002fa7] text-white hover:bg-[#0026c4]" 
+                : "bg-[#8b91a5] text-white cursor-not-allowed"
+            }`}
+            title={!canCreateOpportunity ? "You don't have permission to create opportunities" : ""}
           >
             <Plus size={20} />
             Add Opportunity
@@ -364,14 +457,24 @@ export default function AdminOpportunities() {
                     >
                       <Eye size={18} />
                     </button>
-                    <button 
-                      onClick={() => handleEdit(opp)}
-                      className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    {opp.status === "active" && (
+                    {canEditOpportunity(opp) ? (
+                      <button 
+                        onClick={() => handleEdit(opp)}
+                        className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to edit this opportunity"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
+                    {opp.status === "active" && canEditOpportunity(opp) && (
                       <button
                         onClick={() => handleExpire(opp)}
                         className="p-2 text-[#ea580c] hover:bg-[#ea580c]/10 rounded transition-colors"
@@ -380,7 +483,7 @@ export default function AdminOpportunities() {
                         <Clock size={18} />
                       </button>
                     )}
-                    {opp.status === "expired" && (
+                    {opp.status === "expired" && canEditOpportunity(opp) && (
                       <button
                         onClick={() => handleReactivate(opp)}
                         className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
@@ -389,13 +492,23 @@ export default function AdminOpportunities() {
                         <RotateCcw size={18} />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(opp)}
-                      className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {canDeleteOpportunity(opp) ? (
+                      <button
+                        onClick={() => handleDelete(opp)}
+                        className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to delete this opportunity"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -458,14 +571,25 @@ export default function AdminOpportunities() {
                 <Eye size={16} />
                 View
               </button>
-              <button 
-                onClick={() => handleEdit(opp)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
-              >
-                <Edit size={16} />
-                Edit
-              </button>
-              {opp.status === "active" && (
+              {canEditOpportunity(opp) ? (
+                <button 
+                  onClick={() => handleEdit(opp)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                >
+                  <Edit size={16} />
+                  Edit
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to edit this opportunity"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Edit
+                </button>
+              )}
+              {opp.status === "active" && canEditOpportunity(opp) && (
                 <button
                   onClick={() => handleExpire(opp)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
@@ -474,7 +598,7 @@ export default function AdminOpportunities() {
                   Expire
                 </button>
               )}
-              {opp.status === "expired" && (
+              {opp.status === "expired" && canEditOpportunity(opp) && (
                 <button
                   onClick={() => handleReactivate(opp)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
@@ -483,13 +607,24 @@ export default function AdminOpportunities() {
                   Reactivate
                 </button>
               )}
-              <button
-                onClick={() => handleDelete(opp)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
+              {canDeleteOpportunity(opp) ? (
+                <button
+                  onClick={() => handleDelete(opp)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to delete this opportunity"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         )))

@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Calendar, RefreshCw, Upload, X } from "lucide-react";
-import { getAll, create, update, remove, COLLECTIONS } from "../../services/firebase/firestore";
+import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Calendar, RefreshCw, Upload, X, Lock } from "lucide-react";
+import { getAll, createWithDuplicateCheck, updateWithDuplicateCheck, remove, update, createContentNotification, COLLECTIONS } from "../../services/firebase/firestore";
 import { uploadImage, STORAGE_PATHS } from "../../services/firebase/storage";
 import { processExpiredEvents, getDaysUntilDeletion } from "../../services/firebase/eventService";
+import { useAuth } from "../../contexts/AuthContext";
+import { hasPermission, canModifyItem, filterItemsByPermission, PERMISSIONS } from "../../utils/permissions";
+import PageLoader from "../../components/PageLoader";
+import { usePageReloadLoader } from "../../hooks/useSessionLoader";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminEvents() {
+  const { user } = useAuth();
   const [eventsList, setEventsList] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const showLoader = usePageReloadLoader([loading], 1200);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -29,6 +36,21 @@ export default function AdminEvents() {
     fetchEvents();
     checkExpiredEvents();
   }, []);
+
+  // Filter events based on user permissions and search/filter criteria
+  useEffect(() => {
+    let filtered = filterItemsByPermission(eventsList, user, 'event');
+    
+    // Apply search and category filters
+    filtered = filtered.filter(event => {
+      const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "All" || event.category === filterCategory;
+      const matchesStatus = filterStatus === "All" || event.status === filterStatus.toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+    
+    setFilteredEvents(filtered);
+  }, [eventsList, user, searchTerm, filterCategory, filterStatus]);
 
   const checkExpiredEvents = async () => {
     try {
@@ -55,16 +77,14 @@ export default function AdminEvents() {
     }
   };
 
-  const filteredEvents = eventsList.filter(event => {
-    const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "All" || event.category === filterCategory;
-    const matchesStatus = filterStatus === "All" || event.status === filterStatus.toLowerCase();
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
   const addToast = (message, type) => {
     setToast({ message, type });
   };
+
+  // Check permissions
+  const canCreateEvent = hasPermission(user, PERMISSIONS.CREATE_EVENT);
+  const canEditEvent = (event) => canModifyItem(user, event, 'edit', 'event');
+  const canDeleteEvent = (event) => canModifyItem(user, event, 'delete', 'event');
 
   const getDaysUntilDeletion = (expiryDate) => {
     if (!expiryDate) return null;
@@ -76,6 +96,11 @@ export default function AdminEvents() {
   };
 
   const handleAdd = () => {
+    if (!canCreateEvent) {
+      addToast('You do not have permission to create events', 'error');
+      return;
+    }
+    
     setModalMode("add");
     setFormData({ 
       title: "", 
@@ -85,7 +110,8 @@ export default function AdminEvents() {
       price: "", 
       description: "",
       registrationLink: "",
-      imageUrl: "" 
+      imageUrl: "",
+      author: user?.displayName || user?.name || ""
     });
     setImageFile(null);
     setImagePreview(null);
@@ -99,6 +125,11 @@ export default function AdminEvents() {
   };
 
   const handleEdit = (event) => {
+    if (!canEditEvent(event)) {
+      addToast('You do not have permission to edit this event', 'error');
+      return;
+    }
+    
     setModalMode("edit");
     setFormData(event);
     setImageFile(null);
@@ -107,6 +138,11 @@ export default function AdminEvents() {
   };
 
   const handleDelete = (event) => {
+    if (!canDeleteEvent(event)) {
+      addToast('You do not have permission to delete this event', 'error');
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: "Delete Event",
@@ -116,6 +152,10 @@ export default function AdminEvents() {
         try {
           await remove(COLLECTIONS.EVENTS, event.id);
           setEventsList(eventsList.filter(e => e.id !== event.id));
+          
+          // Create notification for deleted event
+          await createContentNotification(COLLECTIONS.EVENTS, event, user, 'deleted');
+          
           addToast("Event deleted successfully", "success");
         } catch (error) {
           console.error('Error deleting event:', error);
@@ -136,9 +176,14 @@ export default function AdminEvents() {
       onConfirm: async () => {
         try {
           await update(COLLECTIONS.EVENTS, event.id, { status: "expired", expiryDate: new Date().toISOString() });
+          const expiredEvent = { ...event, status: "expired", expiryDate: new Date().toISOString() };
           setEventsList(eventsList.map(e => 
-            e.id === event.id ? { ...e, status: "expired", expiryDate: new Date().toISOString() } : e
+            e.id === event.id ? expiredEvent : e
           ));
+          
+          // Create notification for expired event
+          await createContentNotification(COLLECTIONS.EVENTS, expiredEvent, user, 'expired');
+          
           addToast("Event expired successfully", "warning");
         } catch (error) {
           console.error('Error expiring event:', error);
@@ -153,9 +198,14 @@ export default function AdminEvents() {
   const handleReactivate = async (event) => {
     try {
       await update(COLLECTIONS.EVENTS, event.id, { status: "active", expiryDate: null });
+      const reactivatedEvent = { ...event, status: "active", expiryDate: null };
       setEventsList(eventsList.map(e => 
-        e.id === event.id ? { ...e, status: "active", expiryDate: null } : e
+        e.id === event.id ? reactivatedEvent : e
       ));
+      
+      // Create notification for reactivated event
+      await createContentNotification(COLLECTIONS.EVENTS, reactivatedEvent, user, 'reactivated');
+      
       addToast("Event reactivated successfully", "success");
     } catch (error) {
       console.error('Error reactivating event:', error);
@@ -199,16 +249,49 @@ export default function AdminEvents() {
       }
 
       if (modalMode === "add") {
-        const newEventData = { ...formData, imageUrl, status: "active", expiryDate: null };
-        const newId = await create(COLLECTIONS.EVENTS, newEventData);
-        setEventsList([{ id: newId, ...newEventData }, ...eventsList]);
-        addToast("Event added successfully", "success");
+        const newEventData = { 
+          ...formData, 
+          imageUrl, 
+          status: "active", 
+          expiryDate: null,
+          createdBy: user?.uid,
+          author: formData.author || user?.displayName || user?.name || "Unknown"
+        };
+        try {
+          const newId = await createWithDuplicateCheck(COLLECTIONS.EVENTS, newEventData, false);
+          const newEvent = { id: newId, ...newEventData };
+          setEventsList([newEvent, ...eventsList]);
+          
+          // Create notification for new event
+          await createContentNotification(COLLECTIONS.EVENTS, newEvent, user, 'created');
+          
+          addToast("Event added successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       } else if (modalMode === "edit") {
         const { id, createdAt, updatedAt, ...updateData } = formData;
         const updatedData = { ...updateData, imageUrl };
-        await update(COLLECTIONS.EVENTS, formData.id, updatedData);
-        setEventsList(eventsList.map(e => e.id === formData.id ? { ...formData, imageUrl } : e));
-        addToast("Event updated successfully", "success");
+        try {
+          await updateWithDuplicateCheck(COLLECTIONS.EVENTS, formData.id, updatedData, false);
+          const updatedEvent = { ...formData, imageUrl };
+          setEventsList(eventsList.map(e => e.id === formData.id ? updatedEvent : e));
+          
+          // Create notification for updated event
+          await createContentNotification(COLLECTIONS.EVENTS, updatedEvent, user, 'updated');
+          
+          addToast("Event updated successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
       }
       setShowModal(false);
       setImageFile(null);
@@ -220,6 +303,10 @@ export default function AdminEvents() {
       setUploading(false);
     }
   };
+
+  if (showLoader) {
+    return <PageLoader isLoading={true} />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -251,7 +338,13 @@ export default function AdminEvents() {
           </button>
           <button 
             onClick={handleAdd}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
+            disabled={!canCreateEvent}
+            className={`flex items-center justify-center gap-2 px-6 py-3 text-[13px] sm:text-[14px] font-semibold rounded transition-colors whitespace-nowrap ${
+              canCreateEvent 
+                ? "bg-[#002fa7] text-white hover:bg-[#0026c4]" 
+                : "bg-[#8b91a5] text-white cursor-not-allowed"
+            }`}
+            title={!canCreateEvent ? "You don't have permission to create events" : ""}
           >
             <Plus size={20} />
             Add Event
@@ -360,14 +453,24 @@ export default function AdminEvents() {
                     >
                       <Eye size={18} />
                     </button>
-                    <button 
-                      onClick={() => handleEdit(event)}
-                      className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    {event.status === "active" && (
+                    {canEditEvent(event) ? (
+                      <button 
+                        onClick={() => handleEdit(event)}
+                        className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to edit this event"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
+                    {event.status === "active" && canEditEvent(event) && (
                       <button
                         onClick={() => handleExpire(event)}
                         className="p-2 text-[#ea580c] hover:bg-[#ea580c]/10 rounded transition-colors"
@@ -376,7 +479,7 @@ export default function AdminEvents() {
                         <Clock size={18} />
                       </button>
                     )}
-                    {event.status === "expired" && (
+                    {event.status === "expired" && canEditEvent(event) && (
                       <button
                         onClick={() => handleReactivate(event)}
                         className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
@@ -385,13 +488,23 @@ export default function AdminEvents() {
                         <RotateCcw size={18} />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(event)}
-                      className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {canDeleteEvent(event) ? (
+                      <button
+                        onClick={() => handleDelete(event)}
+                        className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to delete this event"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -454,14 +567,25 @@ export default function AdminEvents() {
                 <Eye size={16} />
                 View
               </button>
-              <button 
-                onClick={() => handleEdit(event)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
-              >
-                <Edit size={16} />
-                Edit
-              </button>
-              {event.status === "active" && (
+              {canEditEvent(event) ? (
+                <button 
+                  onClick={() => handleEdit(event)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                >
+                  <Edit size={16} />
+                  Edit
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to edit this event"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Edit
+                </button>
+              )}
+              {event.status === "active" && canEditEvent(event) && (
                 <button
                   onClick={() => handleExpire(event)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
@@ -470,7 +594,7 @@ export default function AdminEvents() {
                   Expire
                 </button>
               )}
-              {event.status === "expired" && (
+              {event.status === "expired" && canEditEvent(event) && (
                 <button
                   onClick={() => handleReactivate(event)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
@@ -479,13 +603,24 @@ export default function AdminEvents() {
                   Reactivate
                 </button>
               )}
-              <button
-                onClick={() => handleDelete(event)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
+              {canDeleteEvent(event) ? (
+                <button
+                  onClick={() => handleDelete(event)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to delete this event"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         )))
