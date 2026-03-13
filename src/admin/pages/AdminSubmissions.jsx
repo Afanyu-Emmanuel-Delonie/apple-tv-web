@@ -28,7 +28,7 @@ export default function AdminSubmissions() {
             actionTimestamp: null,
             description: "The government has announced a new policy regarding education reform. This comprehensive policy aims to improve the quality of education across all regions and make it more accessible to students from all backgrounds. The policy includes provisions for increased funding, teacher training programs, and infrastructure development.",
             location: "Yaoundé, Cameroon",
-            image: "/src/assets/latest-news/g20-sumit.png"
+            image: "/assets/latest-news/g20-sumit.png"
           },
           { 
             id: 2, 

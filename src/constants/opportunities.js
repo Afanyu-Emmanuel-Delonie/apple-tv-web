@@ -16,7 +16,7 @@ export const opportunities = [
     location: "Douala, Cameroon",
     type: "Full-time",
     excerpt: "Join our dynamic team to build innovative web applications using modern technologies. 3+ years experience required.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Competitive",
     deadline: "March 30, 2024",
     experience: "3+ years"
@@ -29,7 +29,7 @@ export const opportunities = [
     location: "Yaoundé, Cameroon",
     type: "Internship",
     excerpt: "6-month paid internship opportunity to learn digital marketing strategies and campaign management.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "150,000 FCFA/month",
     deadline: "April 5, 2024",
     experience: "Entry Level"
@@ -42,7 +42,7 @@ export const opportunities = [
     location: "Pan-African",
     type: "Fellowship",
     excerpt: "12-month leadership development program for emerging African leaders with mentorship and networking.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Fully Funded",
     deadline: "April 15, 2024",
     experience: "2+ years"
@@ -55,7 +55,7 @@ export const opportunities = [
     location: "Bamenda, Cameroon",
     type: "Volunteer",
     excerpt: "Support community health initiatives and awareness campaigns in rural areas. Training provided.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Volunteer",
     deadline: "Rolling",
     experience: "No experience"
@@ -68,7 +68,7 @@ export const opportunities = [
     location: "Cameroon",
     type: "Grant",
     excerpt: "Up to 5 million FCFA in funding for innovative small business ideas in technology and agriculture.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Up to 5M FCFA",
     deadline: "May 1, 2024",
     experience: "Business Plan Required"
@@ -81,7 +81,7 @@ export const opportunities = [
     location: "Remote",
     type: "Remote",
     excerpt: "Analyze business data and create insights using Python, SQL, and visualization tools.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "400,000 - 600,000 FCFA",
     deadline: "April 10, 2024",
     experience: "2+ years"
@@ -94,7 +94,7 @@ export const opportunities = [
     location: "Limbe, Cameroon",
     type: "Internship",
     excerpt: "Learn professional graphic design and branding in a fast-paced creative environment.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "100,000 FCFA/month",
     deadline: "April 20, 2024",
     experience: "Portfolio Required"
@@ -107,7 +107,7 @@ export const opportunities = [
     location: "Buea, Cameroon",
     type: "Fellowship",
     excerpt: "Conduct research on climate adaptation strategies in Central Africa. PhD candidates preferred.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Stipend Provided",
     deadline: "May 5, 2024",
     experience: "Graduate Level"
@@ -120,7 +120,7 @@ export const opportunities = [
     location: "Various Locations",
     type: "Volunteer",
     excerpt: "Teach English and STEM subjects in underserved communities across Cameroon.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Volunteer",
     deadline: "Rolling",
     experience: "Teaching Experience Preferred"
@@ -133,7 +133,7 @@ export const opportunities = [
     location: "Cameroon",
     type: "Grant",
     excerpt: "Funding for women-led technology startups and innovation projects. Up to 3 million FCFA.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Up to 3M FCFA",
     deadline: "April 25, 2024",
     experience: "Women Entrepreneurs"
@@ -146,7 +146,7 @@ export const opportunities = [
     location: "Garoua, Cameroon",
     type: "Full-time",
     excerpt: "Lead development projects in infrastructure and community empowerment. PMP certification preferred.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "Competitive Package",
     deadline: "May 10, 2024",
     experience: "5+ years"
@@ -159,7 +159,7 @@ export const opportunities = [
     location: "Douala, Cameroon",
     type: "Internship",
     excerpt: "Create engaging content for digital platforms. Strong writing skills and creativity required.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     salary: "120,000 FCFA/month",
     deadline: "April 30, 2024",
     experience: "Writing Samples Required"

@@ -11,7 +11,7 @@ export default function Footer() {
           <div>
             <Link to="/" className="flex items-center gap-2.5 mb-4 no-underline">
               <img 
-                src="/src/assets/apple-tv-logo.png" 
+                src="/assets/apple-tv-logo.png" 
                 alt="Apple TV Logo" 
                 className="w-10 h-10 object-contain"
               />

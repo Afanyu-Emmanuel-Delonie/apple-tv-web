@@ -96,7 +96,7 @@ export default function AdminLayout() {
             {sidebarOpen ? (
               <Link to="/admin/dashboard" className="flex items-center gap-2.5 no-underline">
                 <img 
-                  src="/src/assets/apple-tv-logo.png" 
+                  src="/assets/apple-tv-logo.png" 
                   alt="Apple TV Logo" 
                   className="w-8 h-8 object-contain"
                 />
@@ -107,7 +107,7 @@ export default function AdminLayout() {
             ) : (
               <Link to="/admin/dashboard" className="no-underline">
                 <img 
-                  src="/src/assets/apple-tv-logo.png" 
+                  src="/assets/apple-tv-logo.png" 
                   alt="Apple TV Logo" 
                   className="w-8 h-8 object-contain"
                 />

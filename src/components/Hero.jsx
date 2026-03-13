@@ -3,19 +3,19 @@ import { useState, useEffect } from "react";
 const heroSlides = [
   {
     id: 1,
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     title: "Global Markets React to New Economic Policy Shifts",
     subtitle: "Investors worldwide respond as major central banks coordinate an unprecedented monetary response ahead of the G20 summit.",
   },
   {
     id: 2,
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     title: "Breaking: Technology Giants Announce Major Partnership",
     subtitle: "Leading tech companies join forces to develop next-generation sustainable computing solutions.",
   },
   {
     id: 3,
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     title: "Climate Summit Reaches Historic Agreement",
     subtitle: "World leaders commit to ambitious new targets in landmark environmental accord.",
   },

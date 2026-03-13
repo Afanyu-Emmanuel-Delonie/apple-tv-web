@@ -16,7 +16,7 @@ export const scholarships = [
     provider: "Mastercard Foundation",
     location: "Various African Universities",
     excerpt: "Full scholarship covering tuition, accommodation, and living expenses for academically talented students from disadvantaged backgrounds.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding",
     level: "Bachelor's Degree",
     field: "All Fields"
@@ -29,7 +29,7 @@ export const scholarships = [
     provider: "African Union",
     location: "Pan-African Universities",
     excerpt: "Fully-funded master's degree scholarships for African students in STEM, agriculture, and health sciences.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding",
     level: "Master's Degree",
     field: "STEM, Agriculture, Health"
@@ -42,7 +42,7 @@ export const scholarships = [
     provider: "Commonwealth Scholarship Commission",
     location: "UK Universities",
     excerpt: "Doctoral scholarships for students from Commonwealth countries pursuing research in development-related fields.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding + Stipend",
     level: "PhD",
     field: "Development Studies"
@@ -55,7 +55,7 @@ export const scholarships = [
     provider: "Google",
     location: "Online",
     excerpt: "Free online training in Android, Web, and Cloud development with certification opportunities.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Free",
     level: "Certificate",
     field: "Technology"
@@ -68,7 +68,7 @@ export const scholarships = [
     provider: "World Bank",
     location: "Partner Universities Worldwide",
     excerpt: "Scholarships for master's studies in development-related fields for students from developing countries.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding",
     level: "Master's Degree",
     field: "Development, Economics"
@@ -81,7 +81,7 @@ export const scholarships = [
     provider: "DAAD Germany",
     location: "German Universities",
     excerpt: "Research grants for doctoral candidates and young academics from developing countries.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "€1,200/month",
     level: "PhD Research",
     field: "All Fields"
@@ -94,7 +94,7 @@ export const scholarships = [
     provider: "UK Government",
     location: "UK Universities",
     excerpt: "Prestigious fully-funded master's scholarships for future leaders and influencers.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding",
     level: "Master's Degree",
     field: "All Fields"
@@ -107,7 +107,7 @@ export const scholarships = [
     provider: "European Commission",
     location: "European Universities",
     excerpt: "Study in multiple European countries with full scholarships covering tuition and living costs.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "€1,400/month + Tuition",
     level: "Master's Degree",
     field: "Various Fields"
@@ -120,7 +120,7 @@ export const scholarships = [
     provider: "US Department of State",
     location: "US Universities",
     excerpt: "Graduate study opportunities in the United States for international students.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Full Funding",
     level: "Master's/PhD",
     field: "All Fields"
@@ -133,7 +133,7 @@ export const scholarships = [
     provider: "STEM Africa Foundation",
     location: "African Universities",
     excerpt: "Scholarships specifically for young African women pursuing STEM education.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Partial to Full Funding",
     level: "Bachelor's Degree",
     field: "STEM"
@@ -146,7 +146,7 @@ export const scholarships = [
     provider: "UNESCO & L'Oréal",
     location: "International",
     excerpt: "Research grants for women scientists pursuing careers in life sciences.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "€15,000 - €20,000",
     level: "PhD/Postdoc",
     field: "Life Sciences"
@@ -159,7 +159,7 @@ export const scholarships = [
     provider: "Microsoft",
     location: "Online",
     excerpt: "Free access to Microsoft certifications, training, and global community of student leaders.",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     amount: "Free + Benefits",
     level: "Certificate",
     field: "Technology"

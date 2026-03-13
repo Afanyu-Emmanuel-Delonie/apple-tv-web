@@ -45,7 +45,7 @@ export default function Navbar() {
               className="flex items-center gap-2.5 no-underline flex-shrink-0 mr-2 cursor-pointer"
             >
               <img 
-                src="/src/assets/apple-tv-logo.png" 
+                src="/assets/apple-tv-logo.png" 
                 alt="Apple TV Logo" 
                 className="w-8 h-8 object-contain flex-shrink-0"
               />

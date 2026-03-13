@@ -6,7 +6,7 @@ export const newsArticles = [
     excerpt: "Major cities to benefit from comprehensive road and transportation upgrades in the coming fiscal year.",
     author: "Sarah Johnson",
     timestamp: "2 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     featured: true,
   },
   {
@@ -16,7 +16,7 @@ export const newsArticles = [
     excerpt: "Local entrepreneurs attract international funding as innovation sector expands.",
     author: "Michael Chen",
     timestamp: "4 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     trending: true,
   },
   {
@@ -26,7 +26,7 @@ export const newsArticles = [
     excerpt: "Celebrating excellence in cinema with groundbreaking performances.",
     author: "Emma Williams",
     timestamp: "5 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     trending: true,
   },
   {
@@ -36,7 +36,7 @@ export const newsArticles = [
     excerpt: "Nations commit to ambitious carbon reduction targets.",
     author: "David Martinez",
     timestamp: "6 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     trending: true,
   },
   {
@@ -46,7 +46,7 @@ export const newsArticles = [
     excerpt: "Positive indicators drive investor confidence across sectors.",
     author: "Lisa Anderson",
     timestamp: "7 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
     trending: true,
   },
   {
@@ -56,7 +56,7 @@ export const newsArticles = [
     excerpt: "Sweeping changes to governance structure approved after months of debate.",
     author: "Robert Taylor",
     timestamp: "8 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
   },
   {
     id: 7,
@@ -65,7 +65,7 @@ export const newsArticles = [
     excerpt: "Historic deal promises to boost cross-border commerce and cooperation.",
     author: "Jennifer Lee",
     timestamp: "9 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
   },
   {
     id: 8,
@@ -74,7 +74,7 @@ export const newsArticles = [
     excerpt: "Industry honors breakthrough artists and legendary performers.",
     author: "Chris Brown",
     timestamp: "10 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
   },
   {
     id: 9,
@@ -83,7 +83,7 @@ export const newsArticles = [
     excerpt: "Green technology companies secure funding for expansion projects.",
     author: "Amanda White",
     timestamp: "11 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
   },
   {
     id: 10,
@@ -92,7 +92,7 @@ export const newsArticles = [
     excerpt: "International organizations coordinate relief efforts for affected populations.",
     author: "Daniel Kim",
     timestamp: "12 hours ago",
-    image: "/src/assets/latest-news/g20-sumit.png",
+    image: "/assets/latest-news/g20-sumit.png",
   },
 ];
 
