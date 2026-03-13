@@ -120,3 +120,5 @@ export const events = [
     description: "Explore health services, fitness programs, and wellness products for a healthier lifestyle."
   },
 ];
+
+export const eventCategories = Array.from(new Set(events.map(e => e.category)));
