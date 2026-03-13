@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                   </span>
                   <Link
                     to="/admin/submissions"
-                    className="px-3 bg-[#002fa7] sm:px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors no-underline"
+                    className="px-3  sm:px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors no-underline"
                   >
                     Review
                   </Link>

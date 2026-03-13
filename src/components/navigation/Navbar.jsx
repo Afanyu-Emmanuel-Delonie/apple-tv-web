@@ -50,7 +50,7 @@ export default function Navbar() {
                 className="w-8 h-8 object-contain flex-shrink-0"
               />
               <span className="font-playfair text-[17px] font-black text-[#0b1020] tracking-tight leading-none whitespace-nowrap">
-                Apple <span className="text-[#002fa7]">TV</span>
+                Apple <span className="text-[#002fa7]">Fam TV</span>
               </span>
             </Link>
 

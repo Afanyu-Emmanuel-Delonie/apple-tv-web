@@ -14,7 +14,7 @@ export default function AboutUs() {
             </span>
           </div>
           <h1 className="text-[clamp(28px,6vw,56px)] font-playfair font-black text-white leading-[1.05] mb-4">
-            About <span className="italic">Apple TV FM195</span>
+            About <span className="italic">Apple Fam TV</span>
           </h1>
           <p className="text-[16px] text-white/80 max-w-[700px] leading-relaxed">
             A fast-growing digital media platform dedicated to informing, educating, and entertaining the public.
@@ -33,7 +33,7 @@ export default function AboutUs() {
             </div>
             <h2 className="text-[28px] font-playfair font-black text-[#0b1020] mb-4">Our Mission</h2>
             <p className="text-[15px] text-[#2c3348] leading-relaxed">
-              Apple TV FM195 is a fast-growing digital media platform dedicated to informing, educating, and entertaining the public. We give the public a voice by allowing users to submit news, stories, and updates, helping us keep the community informed and connected.
+              Apple Fam TV is a fast-growing digital media platform dedicated to informing, educating, and entertaining the public. We give the public a voice by allowing users to submit news, stories, and updates, helping us keep the community informed and connected.
             </p>
           </div>
 
@@ -82,7 +82,7 @@ export default function AboutUs() {
         <div className="bg-white border border-[#e3e6ee] rounded-2xl p-8 text-center">
           <h2 className="text-[32px] font-playfair font-black text-[#0b1020] mb-4">Your Voice Matters</h2>
           <p className="text-[16px] text-[#2c3348] max-w-[700px] mx-auto leading-relaxed mb-6">
-            Apple TV FM195 gives the public a voice. We encourage our community to submit news, stories, and updates, helping us keep everyone informed and connected. Together, we build a stronger, more informed community.
+            Apple Fam TV gives the public a voice. We encourage our community to submit news, stories, and updates, helping us keep everyone informed and connected. Together, we build a stronger, more informed community.
           </p>
           <Link
             to="/submit-story"
@@ -97,7 +97,7 @@ export default function AboutUs() {
       <OpportunitiesCTA
         eyebrow="Join Our Community"
         headline="Stay Connected with "
-        highlightText="Apple TV FM195"
+        highlightText="Apple Fam TV"
         description="Get the latest news, opportunities, and insights delivered straight to your phone. Be part of a trusted community that values reliable information."
         primaryButtonText="Join Our Community"
         accentColor="#002fa7"

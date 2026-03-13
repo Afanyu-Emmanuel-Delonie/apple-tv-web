@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, Settings, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
 
 export default function AdminLayout() {
@@ -7,6 +7,19 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const notifications = [
     {
@@ -101,7 +114,7 @@ export default function AdminLayout() {
                   className="w-8 h-8 object-contain"
                 />
                 <span className="font-playfair text-[17px] font-black text-[#0b1020]">
-                  Apple <span className="text-[#002fa7]">TV</span>
+                  Apple <span className="text-[#002fa7]">Fam TV</span>
                 </span>
               </Link>
             ) : (
@@ -129,6 +142,12 @@ export default function AdminLayout() {
                       : "text-[#2c3348] hover:bg-[#f0f2f8]"
                   }`}
                   title={!sidebarOpen ? item.label : ""}
+                  onClick={() => {
+                    // Only close sidebar on mobile
+                    if (isMobile) {
+                      setSidebarOpen(false);
+                    }
+                  }}
                 >
                   <Icon size={20} className="flex-shrink-0" />
                   {sidebarOpen && <span>{item.label}</span>}

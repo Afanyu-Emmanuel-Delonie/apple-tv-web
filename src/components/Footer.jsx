@@ -16,7 +16,7 @@ export default function Footer() {
                 className="w-10 h-10 object-contain"
               />
               <span className="font-playfair text-[20px] font-black text-white tracking-tight">
-                Apple <span className="text-[#002fa7]">TV</span>
+                Apple <span className="text-[#002fa7]">Fam TV</span>
               </span>
             </Link>
             <p className="text-[14px] text-white/60 leading-relaxed mb-6">
@@ -165,7 +165,7 @@ export default function Footer() {
         <div className="max-w-[1200px] mx-auto px-6 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-[13px] text-white/50">
-              © {new Date().getFullYear()} Apple TV. All rights reserved.
+              © {new Date().getFullYear()} Apple Fam TV. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <Link 
