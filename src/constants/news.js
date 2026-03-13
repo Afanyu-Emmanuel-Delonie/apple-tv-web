@@ -97,6 +97,7 @@ export const newsArticles = [
 ];
 
 export const categories = [
+  { name: "Headlines", color: "#dc2626" },
   { name: "Latest", color: "#002fa7" },
   { name: "International", color: "#0066cc" },
   { name: "Business", color: "#047857" },

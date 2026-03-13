@@ -2,7 +2,6 @@ import { Routes, Route } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout.jsx'
 import Home from '../pages/Home.jsx'
 import Category from '../pages/Category.jsx'
-import RegionalNewsPage from '../pages/RegionalNewsPage.jsx'
 import ArticleDetailsPage from '../pages/ArticleDetailsPage.jsx'
 import EventDetailsPage from '../pages/EventDetailsPage.jsx'
 import OpportunityDetailsPage from '../pages/OpportunityDetailsPage.jsx'
@@ -47,7 +46,6 @@ export default function App() {
         <Route element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="category/:slug" element={<Category />} />
-          <Route path="regional-news" element={<RegionalNewsPage />} />
           <Route path="article/:id" element={<ArticleDetailsPage />} />
           <Route path="event/:id" element={<EventDetailsPage />} />
           <Route path="opportunity/:id" element={<OpportunityDetailsPage />} />
