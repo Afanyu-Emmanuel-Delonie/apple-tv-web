@@ -1,0 +1,13 @@
+{
+  "name": "apple-fam-tv-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "export-dev": "node export-dev-data.js",
+    "import-prod": "node import-to-production.js",
+    "seed-prod": "node seed-production.js"
+  },
+  "dependencies": {
+    "firebase": "^10.7.1"
+  }
+}
