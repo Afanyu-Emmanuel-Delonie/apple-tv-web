@@ -1,76 +1,101 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Eye, Clock, RotateCcw } from "lucide-react";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminSubmissions() {
-  const [submissions, setSubmissions] = useState([
-    { 
-      id: 1, 
-      title: "Breaking: New Government Policy Announced", 
-      type: "News Story", 
-      category: "Politics",
-      author: "John Doe", 
-      email: "john@example.com", 
-      phone: "+237 670 123 456",
-      date: "2 hours ago", 
-      status: "pending",
-      actionTimestamp: null,
-      description: "The government has announced a new policy regarding education reform. This comprehensive policy aims to improve the quality of education across all regions and make it more accessible to students from all backgrounds. The policy includes provisions for increased funding, teacher training programs, and infrastructure development.",
-      location: "Yaoundé, Cameroon",
-      image: "/src/assets/latest-news/g20-sumit.png"
-    },
-    { 
-      id: 2, 
-      title: "Software Developer Position at TechCorp", 
-      type: "Job Offer", 
-      category: "Full-time",
-      author: "Jane Smith", 
-      email: "jane@example.com", 
-      phone: "+237 680 234 567",
-      date: "5 hours ago", 
-      status: "pending",
-      actionTimestamp: null,
-      description: "We are looking for an experienced Software Developer to join our growing team. The ideal candidate should have strong skills in React, Node.js, and cloud technologies. This is a full-time position with competitive salary and benefits.",
-      location: "Douala, Cameroon",
-      company: "TechCorp Solutions",
-      salary: "800,000 - 1,200,000 XAF",
-      deadline: "March 30, 2024"
-    },
-    { 
-      id: 3, 
-      title: "Youth Leadership Summit 2024", 
-      type: "Event", 
-      category: "Conference",
-      author: "Mike Johnson", 
-      email: "mike@example.com", 
-      phone: "+237 690 345 678",
-      date: "1 day ago", 
-      status: "approved",
-      actionTimestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-      description: "Join us for the annual Youth Leadership Summit where young leaders from across Africa will gather to discuss innovation, entrepreneurship, and social impact. The event features keynote speakers, workshops, and networking opportunities.",
-      location: "Yaoundé Conference Center",
-      eventDate: "April 15-17, 2024",
-      price: "Free"
-    },
-    { 
-      id: 4, 
-      title: "Marketing Internship at StartupHub", 
-      type: "Opportunity", 
-      category: "Internship",
-      author: "Sarah Williams", 
-      email: "sarah@example.com", 
-      phone: "+237 670 456 789",
-      date: "2 days ago", 
-      status: "rejected",
-      actionTimestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-      description: "StartupHub is offering a 6-month marketing internship for students and recent graduates. This is a great opportunity to gain hands-on experience in digital marketing, social media management, and content creation.",
-      location: "Douala, Cameroon",
-      company: "StartupHub",
-      deadline: "March 25, 2024"
-    },
-  ]);
+  const [submissions, setSubmissions] = useState([]);
+
+  // Load submissions from localStorage on mount
+  useEffect(() => {
+    const loadSubmissions = () => {
+      const storedSubmissions = JSON.parse(localStorage.getItem('submissions') || '[]');
+      
+      // Add default submissions if none exist
+      if (storedSubmissions.length === 0) {
+        const defaultSubmissions = [
+          { 
+            id: 1, 
+            title: "Breaking: New Government Policy Announced", 
+            type: "News Story", 
+            category: "Politics",
+            author: "John Doe", 
+            email: "john@example.com", 
+            phone: "+237 670 123 456",
+            date: "2 hours ago", 
+            status: "pending",
+            actionTimestamp: null,
+            description: "The government has announced a new policy regarding education reform. This comprehensive policy aims to improve the quality of education across all regions and make it more accessible to students from all backgrounds. The policy includes provisions for increased funding, teacher training programs, and infrastructure development.",
+            location: "Yaoundé, Cameroon",
+            image: "/src/assets/latest-news/g20-sumit.png"
+          },
+          { 
+            id: 2, 
+            title: "Software Developer Position at TechCorp", 
+            type: "Job Offer", 
+            category: "Full-time",
+            author: "Jane Smith", 
+            email: "jane@example.com", 
+            phone: "+237 680 234 567",
+            date: "5 hours ago", 
+            status: "pending",
+            actionTimestamp: null,
+            description: "We are looking for an experienced Software Developer to join our growing team. The ideal candidate should have strong skills in React, Node.js, and cloud technologies. This is a full-time position with competitive salary and benefits.",
+            location: "Douala, Cameroon",
+            company: "TechCorp Solutions",
+            salary: "800,000 - 1,200,000 XAF",
+            deadline: "March 30, 2024"
+          },
+          { 
+            id: 3, 
+            title: "Youth Leadership Summit 2024", 
+            type: "Event", 
+            category: "Conference",
+            author: "Mike Johnson", 
+            email: "mike@example.com", 
+            phone: "+237 690 345 678",
+            date: "1 day ago", 
+            status: "approved",
+            actionTimestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            description: "Join us for the annual Youth Leadership Summit where young leaders from across Africa will gather to discuss innovation, entrepreneurship, and social impact. The event features keynote speakers, workshops, and networking opportunities.",
+            location: "Yaoundé Conference Center",
+            eventDate: "April 15-17, 2024",
+            price: "Free"
+          },
+          { 
+            id: 4, 
+            title: "Marketing Internship at StartupHub", 
+            type: "Opportunity", 
+            category: "Internship",
+            author: "Sarah Williams", 
+            email: "sarah@example.com", 
+            phone: "+237 670 456 789",
+            date: "2 days ago", 
+            status: "rejected",
+            actionTimestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+            description: "StartupHub is offering a 6-month marketing internship for students and recent graduates. This is a great opportunity to gain hands-on experience in digital marketing, social media management, and content creation.",
+            location: "Douala, Cameroon",
+            company: "StartupHub",
+            deadline: "March 25, 2024"
+          },
+        ];
+        localStorage.setItem('submissions', JSON.stringify(defaultSubmissions));
+        setSubmissions(defaultSubmissions);
+      } else {
+        setSubmissions(storedSubmissions);
+      }
+    };
+
+    loadSubmissions();
+  }, []);
+
+  // Save submissions to localStorage whenever they change
+  useEffect(() => {
+    if (submissions.length > 0) {
+      localStorage.setItem('submissions', JSON.stringify(submissions));
+    }
+  }, [submissions]);
 
   const [filterStatus, setFilterStatus] = useState("All");
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -152,7 +177,7 @@ export default function AdminSubmissions() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Toast Notification */}
       {toast && (
         <Toast
@@ -185,19 +210,19 @@ export default function AdminSubmissions() {
       />
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-[32px] font-playfair font-black text-[#0b1020] mb-2">Submissions</h1>
-        <p className="text-[14px] text-[#5a6073]">Review and approve user submissions</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-[24px] sm:text-[28px] lg:text-[32px] font-playfair font-black text-[#0b1020] mb-2">Submissions</h1>
+        <p className="text-[13px] sm:text-[14px] text-[#5a6073]">Review and approve user submissions</p>
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-lg border border-[#e3e6ee] p-6 mb-6">
-        <div className="flex gap-2">
+      <div className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="flex flex-wrap gap-2">
           {["All", "Pending", "Approved", "Rejected"].map(status => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 text-[13px] font-semibold rounded transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-semibold rounded transition-colors ${
                 filterStatus === status
                   ? "bg-[#002fa7] text-white"
                   : "bg-[#f6f7fb] text-[#2c3348] hover:bg-[#e3e6ee]"
@@ -210,74 +235,90 @@ export default function AdminSubmissions() {
       </div>
 
       {/* Submissions List */}
-      <div className="space-y-4">
-        {filteredSubmissions.map((submission) => (
-          <div key={submission.id} className="bg-white rounded-lg border border-[#e3e6ee] p-6">
-            <div className="flex items-start justify-between mb-4">
+      <div className="space-y-3 sm:space-y-4">
+        {filteredSubmissions.length === 0 ? (
+          <div className="bg-white rounded-lg border border-[#e3e6ee] p-12 text-center">
+            <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Inbox size={32} className="text-[#8b91a5]" />
+            </div>
+            <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Submissions Found</h3>
+            <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto">
+              {filterStatus === "All" 
+                ? "There are no submissions yet. New submissions will appear here for review."
+                : `No ${filterStatus.toLowerCase()} submissions found. Try selecting a different filter.`
+              }
+            </p>
+          </div>
+        ) : (
+          filteredSubmissions.map((submission) => (
+          <div key={submission.id} className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
               <div className="flex-1">
-                <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">{submission.title}</h3>
-                <div className="flex items-center gap-4 text-[13px] text-[#5a6073]">
+                <h3 className="text-[16px] sm:text-[18px] font-bold text-[#0b1020] mb-2 pr-2">{submission.title}</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[12px] sm:text-[13px] text-[#5a6073]">
                   <span className="font-semibold">{submission.type}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>By {submission.author}</span>
-                  <span>•</span>
-                  <span>{submission.email}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className="truncate">{submission.email}</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>{submission.date}</span>
                 </div>
                 {canUndoAction(submission) && (
-                  <div className="flex items-center gap-2 mt-2 text-[12px] text-[#ea580c]">
+                  <div className="flex items-center gap-2 mt-2 text-[11px] sm:text-[12px] text-[#ea580c]">
                     <Clock size={14} />
                     <span>Undo available for {getMinutesRemaining(submission)} more minutes</span>
                   </div>
                 )}
               </div>
-              <span className={`px-3 py-1 text-[11px] font-bold uppercase rounded ${getStatusColor(submission.status)}`}>
+              <span className={`px-3 py-1 text-[10px] sm:text-[11px] font-bold uppercase rounded whitespace-nowrap self-start ${getStatusColor(submission.status)}`}>
                 {submission.status}
               </span>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <button
                 onClick={() => handleViewDetails(submission)}
-                className="flex items-center gap-2 px-4 py-2 text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors"
               >
                 <Eye size={16} />
-                View Details
+                <span>View Details</span>
               </button>
               {submission.status === "pending" && (
                 <>
                   <button
                     onClick={() => handleApproveClick(submission)}
-                    className="flex items-center gap-2 px-4 py-2 text-[13px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
                   >
                     <CheckCircle size={16} />
-                    Approve
+                    <span>Approve</span>
                   </button>
                   <button
                     onClick={() => handleRejectClick(submission)}
-                    className="flex items-center gap-2 px-4 py-2 text-[13px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
                   >
                     <XCircle size={16} />
-                    Reject
+                    <span>Reject</span>
                   </button>
                 </>
               )}
               {(submission.status === "approved" || submission.status === "rejected") && canUndoAction(submission) && (
                 <button
                   onClick={() => handleUndoAction(submission)}
-                  className="flex items-center gap-2 px-4 py-2 text-[13px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
                 >
                   <RotateCcw size={16} />
-                  Undo {submission.status === "approved" ? "Approval" : "Rejection"}
+                  <span className="hidden sm:inline">Undo {submission.status === "approved" ? "Approval" : "Rejection"}</span>
+                  <span className="sm:hidden">Undo</span>
                 </button>
               )}
             </div>
           </div>
-        ))}
+        )))
+        }
       </div>
 
-      <div className="mt-4 text-[13px] text-[#5a6073]">
+      <div className="mt-4 text-[12px] sm:text-[13px] text-[#5a6073]">
         Showing {filteredSubmissions.length} of {submissions.length} submissions
       </div>
 
@@ -329,14 +370,14 @@ export default function AdminSubmissions() {
             {/* Submitter Information */}
             <div className="bg-[#f6f7fb] rounded-lg p-4 mb-6">
               <h4 className="text-[14px] font-bold text-[#0b1020] mb-3">Submitter Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[12px] font-semibold text-[#8b91a5] mb-1">Name</label>
                   <p className="text-[13px] text-[#2c3348]">{selectedSubmission.author}</p>
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#8b91a5] mb-1">Email</label>
-                  <p className="text-[13px] text-[#2c3348]">{selectedSubmission.email}</p>
+                  <p className="text-[13px] text-[#2c3348] break-all">{selectedSubmission.email}</p>
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#8b91a5] mb-1">Phone</label>
@@ -352,7 +393,7 @@ export default function AdminSubmissions() {
             </div>
 
             {/* Additional Details based on type */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               {selectedSubmission.location && (
                 <div>
                   <label className="block text-[13px] font-semibold text-[#8b91a5] mb-1">Location</label>
@@ -399,13 +440,13 @@ export default function AdminSubmissions() {
 
             {/* Action Buttons */}
             {selectedSubmission.status === "pending" && (
-              <div className="flex items-center gap-3 pt-6 border-t border-[#e3e6ee]">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-6 border-t border-[#e3e6ee]">
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);
                     handleApproveClick(selectedSubmission);
                   }}
-                  className="flex items-center gap-2 px-6 py-3 text-[14px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
+                  className="flex items-center justify-center gap-2 px-6 py-3 text-[14px] font-semibold text-white bg-[#047857] rounded hover:bg-[#036647] transition-colors"
                 >
                   <CheckCircle size={18} />
                   Approve Submission
@@ -415,7 +456,7 @@ export default function AdminSubmissions() {
                     setShowDetailsModal(false);
                     handleRejectClick(selectedSubmission);
                   }}
-                  className="flex items-center gap-2 px-6 py-3 text-[14px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
+                  className="flex items-center justify-center gap-2 px-6 py-3 text-[14px] font-semibold text-white bg-[#dc2626] rounded hover:bg-[#b91c1c] transition-colors"
                 >
                   <XCircle size={18} />
                   Reject Submission

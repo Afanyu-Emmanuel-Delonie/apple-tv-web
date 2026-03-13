@@ -88,12 +88,12 @@ export default function AdminLayout() {
 
       {/* Sidebar - Fixed */}
       <aside className={`fixed top-0 left-0 h-screen bg-white shadow-[2px_0_20px_rgba(0,0,0,0.08)] transition-all duration-300 z-50 ${
-        sidebarOpen ? "w-64" : "w-20"
-      } lg:translate-x-0 -translate-x-full`}>
+        sidebarOpen ? "w-64" : "w-64 -translate-x-full lg:translate-x-0 lg:w-20"
+      }`}>
         <div className="h-full flex flex-col">
           {/* Logo */}
           <div className="h-16 border-b border-[#e3e6ee] flex items-center justify-center px-6">
-            {sidebarOpen ? (
+            {(sidebarOpen || window.innerWidth >= 1024) ? (
               <Link to="/admin/dashboard" className="flex items-center gap-2.5 no-underline">
                 <img 
                   src="/src/assets/apple-tv-logo.png" 
@@ -105,13 +105,11 @@ export default function AdminLayout() {
                 </span>
               </Link>
             ) : (
-              <Link to="/admin/dashboard" className="no-underline">
-                <img 
-                  src="/src/assets/apple-tv-logo.png" 
-                  alt="Apple TV Logo" 
-                  className="w-8 h-8 object-contain"
-                />
-              </Link>
+              <img 
+                src="/src/assets/apple-tv-logo.png" 
+                alt="Apple TV Logo" 
+                className="w-8 h-8 object-contain"
+              />
             )}
           </div>
 
@@ -128,10 +126,10 @@ export default function AdminLayout() {
                       ? "bg-[#002fa7] text-white"
                       : "text-[#2c3348] hover:bg-[#f0f2f8]"
                   }`}
-                  title={!sidebarOpen ? item.label : ""}
+                  onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
                 >
-                  <Icon size={20} className="flex-shrink-0" />
-                  {sidebarOpen && <span>{item.label}</span>}
+                  <Icon size={20} />
+                  {(sidebarOpen || window.innerWidth >= 1024) && <span>{item.label}</span>}
                 </Link>
               );
             })}
@@ -142,10 +140,9 @@ export default function AdminLayout() {
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium text-[#dc2626] hover:bg-[#dc2626]/10 transition-all"
-              title={!sidebarOpen ? "Logout" : ""}
             >
-              <LogOut size={20} className="flex-shrink-0" />
-              {sidebarOpen && <span>Logout</span>}
+              <LogOut size={20} />
+              {(sidebarOpen || window.innerWidth >= 1024) && <span>Logout</span>}
             </button>
           </div>
         </div>
@@ -153,12 +150,15 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${
-        sidebarOpen ? "ml-64" : "ml-20"
+        sidebarOpen && window.innerWidth >= 1024 ? "ml-64" : window.innerWidth >= 1024 ? "ml-20" : "ml-0"
       }`}>
         {/* Top Bar - Fixed */}
         <header 
-          className="fixed top-0 right-0 h-16 bg-white border-b border-[#e3e6ee] flex items-center justify-between px-4 lg:px-8 z-40 transition-all duration-300"
-          style={{ left: sidebarOpen ? "256px" : "80px" }}
+          className="fixed top-0 right-0 h-16 bg-white border-b border-[#e3e6ee] flex items-center justify-between px-4 lg:px-8 z-40" 
+          style={{ 
+            left: sidebarOpen && window.innerWidth >= 1024 ? "256px" : window.innerWidth >= 1024 ? "80px" : "0", 
+            transition: "left 0.3s" 
+          }}
         >
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -176,7 +176,7 @@ export default function AdminLayout() {
               >
                 <Bell size={20} className="text-[#2c3348]" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-[#dc2626] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute top-1 right-1 w-5 h-5 bg-[#dc2626] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}

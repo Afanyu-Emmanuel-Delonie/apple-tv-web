@@ -30,8 +30,10 @@ export default function AdminRegister() {
 
     // TODO: Implement actual registration
     console.log("Registration attempt:", formData);
-    // For now, just navigate to login
-    navigate("/admin/login");
+    
+    // For now, show success message and navigate to users page
+    alert("User registered successfully!");
+    navigate("/admin/users");
   };
 
   return (
@@ -53,7 +55,7 @@ export default function AdminRegister() {
             Register
           </h1>
           <p className="text-[13px] text-[#9ba8b8] text-center mb-8 font-light">
-            Already have an account? <Link to="/admin/login" className="text-[#002fa7] font-medium hover:underline">Sign in</Link>
+            Create a new user account for the platform
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -155,6 +157,15 @@ export default function AdminRegister() {
             >
               Create Account
             </button>
+
+            <div className="mt-4 text-center">
+              <Link 
+                to="/admin/users" 
+                className="text-[12px] text-[#9ba8b8] hover:text-[#002fa7] transition-colors"
+              >
+                Back to Users
+              </Link>
+            </div>
           </form>
         </div>
       </div>

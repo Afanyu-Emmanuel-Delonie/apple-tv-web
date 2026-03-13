@@ -10,10 +10,13 @@ import Events from '../pages/Events.jsx'
 import AboutUs from '../pages/AboutUs.jsx'
 import SubmitStory from '../pages/SubmitStory.jsx'
 import NotFound from '../pages/NotFound.jsx'
+import NetworkError from '../pages/NetworkError.jsx'
 import ScrollToTop from '../components/ScrollToTop.jsx'
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js'
 
 // Admin imports
 import AdminLogin from '../admin/pages/AdminLogin.jsx'
+import AdminRegister from '../admin/pages/AdminRegister.jsx'
 import AdminLayout from '../admin/layouts/AdminLayout.jsx'
 import AdminDashboard from '../admin/pages/AdminDashboard.jsx'
 import AdminArticles from '../admin/pages/AdminArticles.jsx'
@@ -21,9 +24,16 @@ import AdminSubmissions from '../admin/pages/AdminSubmissions.jsx'
 import AdminEvents from '../admin/pages/AdminEvents.jsx'
 import AdminOpportunities from '../admin/pages/AdminOpportunities.jsx'
 import AdminUsers from '../admin/pages/AdminUsers.jsx'
+import AdminNotifications from '../admin/pages/AdminNotifications.jsx'
 import AdminSettings from '../admin/pages/AdminSettings.jsx'
 
 export default function App() {
+  const isOnline = useNetworkStatus();
+
+  if (!isOnline) {
+    return <NetworkError />;
+  }
+
   return (
     <>
       <ScrollToTop />
@@ -43,6 +53,7 @@ export default function App() {
 
         {/* Admin Routes */}
         <Route path="admin/login" element={<AdminLogin />} />
+        <Route path="admin/register" element={<AdminRegister />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="articles" element={<AdminArticles />} />
@@ -50,6 +61,7 @@ export default function App() {
           <Route path="events" element={<AdminEvents />} />
           <Route path="opportunities" element={<AdminOpportunities />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 

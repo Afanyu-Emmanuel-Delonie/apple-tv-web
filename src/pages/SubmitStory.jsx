@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { CheckCircle, X } from "lucide-react";
 
 export default function SubmitStory() {
+  const navigate = useNavigate();
+  const [showToast, setShowToast] = useState(false);
   const [formData, setFormData] = useState({
     submissionType: "story",
     name: "",
@@ -27,13 +31,87 @@ export default function SubmitStory() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log("Form submitted:", formData);
-    alert("Thank you! Your submission has been received and will be reviewed shortly.");
+    
+    // Create submission object
+    const submission = {
+      id: Date.now(),
+      title: formData.title,
+      type: formData.submissionType === "story" ? "News Story" : 
+            formData.submissionType === "job" ? "Job Offer" : "Opportunity",
+      category: formData.category,
+      author: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      date: "Just now",
+      status: "pending",
+      actionTimestamp: null,
+      description: formData.description,
+      location: formData.location,
+      deadline: formData.deadline,
+      company: formData.company,
+      salary: formData.salary,
+      image: formData.image ? URL.createObjectURL(formData.image) : null
+    };
+
+    // Get existing submissions from localStorage
+    const existingSubmissions = JSON.parse(localStorage.getItem('submissions') || '[]');
+    
+    // Add new submission
+    existingSubmissions.unshift(submission);
+    
+    // Save to localStorage
+    localStorage.setItem('submissions', JSON.stringify(existingSubmissions));
+    
+    // Show success toast
+    setShowToast(true);
+    
+    // Reset form
+    setFormData({
+      submissionType: "story",
+      name: "",
+      email: "",
+      phone: "",
+      title: "",
+      category: "",
+      description: "",
+      location: "",
+      deadline: "",
+      company: "",
+      salary: "",
+      image: null
+    });
+    
+    // Hide toast after 5 seconds
+    setTimeout(() => {
+      setShowToast(false);
+    }, 5000);
   };
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 animate-slideIn">
+          <div className="bg-white rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#e3e6ee] p-4 flex items-start gap-3 min-w-[320px] max-w-[400px]">
+            <div className="w-10 h-10 rounded-full bg-[#047857]/10 flex items-center justify-center flex-shrink-0">
+              <CheckCircle size={20} className="text-[#047857]" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-[14px] font-bold text-[#0b1020] mb-1">Submission Received!</h4>
+              <p className="text-[13px] text-[#5a6073]">
+                Thank you! Your submission has been received and will be reviewed shortly.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowToast(false)}
+              className="text-[#8b91a5] hover:text-[#0b1020] transition-colors flex-shrink-0"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="bg-gradient-to-br from-[#002fa7] to-[#0066cc] py-16">
         <div className="max-w-[1200px] mx-auto px-6">

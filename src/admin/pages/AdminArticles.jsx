@@ -162,7 +162,7 @@ export default function AdminArticles() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Toast Notification */}
       {toast && (
         <Toast
@@ -195,14 +195,14 @@ export default function AdminArticles() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 lg:mb-8">
         <div>
-          <h1 className="text-[32px] font-playfair font-black text-[#0b1020] mb-2">Articles</h1>
-          <p className="text-[14px] text-[#5a6073]">Manage all published articles</p>
+          <h1 className="text-[24px] sm:text-[28px] lg:text-[32px] font-playfair font-black text-[#0b1020] mb-2">Articles</h1>
+          <p className="text-[13px] sm:text-[14px] text-[#5a6073]">Manage all published articles</p>
         </div>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-2 px-6 py-3 bg-[#002fa7] text-white text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors"
+          className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
         >
           <Plus size={20} />
           Add Article
@@ -210,8 +210,8 @@ export default function AdminArticles() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border border-[#e3e6ee] p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="relative">
             <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b91a5]" />
             <input
@@ -243,9 +243,22 @@ export default function AdminArticles() {
         </div>
       </div>
 
-      {/* Articles Table */}
-      <div className="bg-white rounded-lg border border-[#e3e6ee] overflow-hidden">
-        <table className="w-full">
+      {/* Articles Table - Desktop */}
+      <div className="hidden md:block bg-white rounded-lg border border-[#e3e6ee] overflow-hidden">
+        {filteredArticles.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Plus size={32} className="text-[#8b91a5]" />
+            </div>
+            <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Articles Found</h3>
+            <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto mb-6">
+              {filterStatus === "All" && filterCategory === "All" && !searchTerm
+                ? "No articles available. Click 'Add Article' to create your first article."
+                : "No articles match your current filters. Try adjusting your search criteria."}
+            </p>
+          </div>
+        ) : (
+          <table className="w-full">
           <thead className="bg-[#f6f7fb] border-b border-[#e3e6ee]">
             <tr>
               <th className="text-left px-6 py-4 text-[13px] font-semibold text-[#2c3348]">Title</th>
@@ -328,6 +341,100 @@ export default function AdminArticles() {
             })}
           </tbody>
         </table>
+        )}
+      </div>
+
+      {/* Articles Cards - Mobile */}
+      <div className="md:hidden space-y-4">
+        {filteredArticles.length === 0 ? (
+          <div className="bg-white rounded-lg border border-[#e3e6ee] p-8 text-center">
+            <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Plus size={32} className="text-[#8b91a5]" />
+            </div>
+            <h3 className="text-[16px] font-bold text-[#0b1020] mb-2">No Articles Found</h3>
+            <p className="text-[13px] text-[#5a6073] mb-4">
+              {filterStatus === "All" && filterCategory === "All" && !searchTerm
+                ? "No articles available. Click 'Add Article' to create your first article."
+                : "No articles match your current filters. Try adjusting your search criteria."}
+            </p>
+          </div>
+        ) : (
+          filteredArticles.map((article) => {
+          const daysLeft = getDaysUntilDeletion(article.expiryDate);
+          return (
+            <div key={article.id} className="bg-white rounded-lg border border-[#e3e6ee] p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[15px] font-bold text-[#0b1020] mb-1">{article.title}</h3>
+                  {article.status === "expired" && daysLeft !== null && (
+                    <div className="text-[11px] text-[#dc2626] mt-1">
+                      Auto-delete in {daysLeft} days
+                    </div>
+                  )}
+                </div>
+                <span className={`px-3 py-1 text-[11px] font-bold uppercase rounded ${getStatusBadge(article.status)} ml-2 flex-shrink-0`}>
+                  {article.status}
+                </span>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="px-3 py-1 text-[11px] font-bold uppercase rounded bg-[#002fa7]/10 text-[#002fa7]">
+                  {article.category}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4 text-[12px]">
+                <div>
+                  <span className="text-[#8b91a5] font-semibold">Date</span>
+                  <p className="text-[#2c3348] mt-1">{article.date}</p>
+                </div>
+                <div>
+                  <span className="text-[#8b91a5] font-semibold">Author</span>
+                  <p className="text-[#2c3348] mt-1">{article.author}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-[#e3e6ee]">
+                <button 
+                  onClick={() => handleView(article)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors"
+                >
+                  <Eye size={16} />
+                  View
+                </button>
+                <button 
+                  onClick={() => handleEdit(article)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                >
+                  <Edit size={16} />
+                  Edit
+                </button>
+                {article.status === "active" ? (
+                  <button
+                    onClick={() => handleExpire(article)}
+                    className="p-2 text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
+                  >
+                    <Clock size={16} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleReactivate(article)}
+                    className="p-2 text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                  >
+                    <Clock size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(article)}
+                  className="p-2 text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          );
+          })
+        )}
       </div>
 
       {/* Results Count */}

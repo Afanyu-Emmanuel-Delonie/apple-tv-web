@@ -15,25 +15,25 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-[32px] font-playfair font-black text-[#0b1020] mb-2">Dashboard</h1>
-        <p className="text-[14px] text-[#5a6073]">Welcome back! Here's what's happening today.</p>
+      <div className="mb-6 lg:mb-8">
+        <h1 className="text-[24px] sm:text-[28px] lg:text-[32px] font-playfair font-black text-[#0b1020] mb-2">Dashboard</h1>
+        <p className="text-[13px] sm:text-[14px] text-[#5a6073]">Welcome back! Here's what's happening today.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-lg border border-[#e3e6ee] p-6">
+            <div key={index} className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: `${stat.color}15` }}>
                   <Icon size={24} style={{ color: stat.color }} />
                 </div>
               </div>
-              <div className="text-[28px] font-black text-[#0b1020] mb-1">{stat.value}</div>
+              <div className="text-[24px] sm:text-[28px] font-black text-[#0b1020] mb-1">{stat.value}</div>
               <div className="text-[13px] font-semibold text-[#2c3348] mb-2">{stat.label}</div>
               <div className="text-[12px] text-[#5a6073]">{stat.change}</div>
             </div>
@@ -42,27 +42,27 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent Submissions */}
-      <div className="bg-white rounded-lg border border-[#e3e6ee] p-6 mb-8">
+      <div className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 mb-6 lg:mb-8 overflow-x-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[20px] font-bold text-[#0b1020]">Recent Submissions</h2>
-          <button className="text-[13px] text-[#002fa7] font-semibold hover:underline">
+          <h2 className="text-[18px] sm:text-[20px] font-bold text-[#0b1020]">Recent Submissions</h2>
+          <button className="text-[12px] sm:text-[13px] text-[#002fa7] font-semibold hover:underline">
             View All
           </button>
         </div>
         <div className="space-y-4">
           {recentSubmissions.map((submission) => (
-            <div key={submission.id} className="flex items-center justify-between py-4 border-b border-[#e3e6ee] last:border-0">
-              <div className="flex-1">
-                <h3 className="text-[15px] font-semibold text-[#0b1020] mb-1">{submission.title}</h3>
-                <div className="flex items-center gap-3 text-[12px] text-[#5a6073]">
+            <div key={submission.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 border-b border-[#e3e6ee] last:border-0 gap-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[14px] sm:text-[15px] font-semibold text-[#0b1020] mb-1 truncate">{submission.title}</h3>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-[12px] text-[#5a6073]">
                   <span>{submission.type}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>By {submission.author}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>{submission.date}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <span className={`px-3 py-1 text-[11px] font-bold uppercase rounded ${
                   submission.status === "pending" 
                     ? "bg-[#ea580c]/10 text-[#ea580c]" 
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
                 }`}>
                   {submission.status}
                 </span>
-                <button className="px-4 py-2 text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors">
+                <button className="px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-semibold text-[#002fa7] border border-[#002fa7] rounded hover:bg-[#002fa7] hover:text-white transition-colors">
                   Review
                 </button>
               </div>
@@ -80,8 +80,8 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <button className="bg-white rounded-lg border border-[#e3e6ee] p-6 text-left hover:shadow-lg transition-shadow">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        <button className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 text-left hover:shadow-lg transition-shadow">
           <div className="w-12 h-12 bg-[#002fa7]/10 rounded-full flex items-center justify-center mb-4">
             <div className="w-6 h-6 rounded-full bg-[#002fa7]" />
           </div>
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
           <p className="text-[13px] text-[#5a6073]">Publish a new news article</p>
         </button>
 
-        <button className="bg-white rounded-lg border border-[#e3e6ee] p-6 text-left hover:shadow-lg transition-shadow">
+        <button className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 text-left hover:shadow-lg transition-shadow">
           <div className="w-12 h-12 bg-[#047857]/10 rounded-full flex items-center justify-center mb-4">
             <div className="w-6 h-6 rounded-full bg-[#047857]" />
           </div>
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
           <p className="text-[13px] text-[#5a6073]">Create a new event listing</p>
         </button>
 
-        <button className="bg-white rounded-lg border border-[#e3e6ee] p-6 text-left hover:shadow-lg transition-shadow">
+        <button className="bg-white rounded-lg border border-[#e3e6ee] p-4 sm:p-6 text-left hover:shadow-lg transition-shadow">
           <div className="w-12 h-12 bg-[#7c3aed]/10 rounded-full flex items-center justify-center mb-4">
             <div className="w-6 h-6 rounded-full bg-[#7c3aed]" />
           </div>

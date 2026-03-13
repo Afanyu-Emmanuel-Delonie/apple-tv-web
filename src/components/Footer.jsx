@@ -167,9 +167,17 @@ export default function Footer() {
             <p className="text-[13px] text-white/50">
               © {new Date().getFullYear()} Apple TV. All rights reserved.
             </p>
-            <p className="text-[13px] text-white/50">
-              created, designed and maintained by Afa-Virtuals
-            </p>
+            <div className="flex items-center gap-4">
+              <Link 
+                to="/admin/login" 
+                className="text-[13px] text-white/40 hover:text-[#002fa7] transition-colors no-underline"
+              >
+                Admin
+              </Link>
+              <p className="text-[13px] text-white/50">
+                created, designed and maintained by Afa-Virtuals
+              </p>
+            </div>
           </div>
         </div>
       </div>
