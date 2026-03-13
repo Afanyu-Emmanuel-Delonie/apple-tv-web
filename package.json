@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "firebase": "^12.10.0",
