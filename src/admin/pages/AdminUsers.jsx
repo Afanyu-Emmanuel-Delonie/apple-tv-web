@@ -1,48 +1,17 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Search, Shield, UserCheck, FileEdit } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Eye, Search, Shield, UserCheck, FileEdit, Mail, Calendar, Activity, RefreshCw, Users } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getAllUsers, updateUserProfileById, deleteUserProfile, createUser } from "../../services/firebase/auth";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: "John Admin",
-      email: "john@appletv.com",
-      role: "admin",
-      status: "active",
-      createdAt: "2024-01-10",
-      lastLogin: "2024-01-20 10:30 AM"
-    },
-    {
-      id: 2,
-      name: "Sarah Editor",
-      email: "sarah@appletv.com",
-      role: "editor",
-      status: "active",
-      createdAt: "2024-01-12",
-      lastLogin: "2024-01-19 03:45 PM"
-    },
-    {
-      id: 3,
-      name: "Mike Writer",
-      email: "mike@appletv.com",
-      role: "author",
-      status: "active",
-      createdAt: "2024-01-15",
-      lastLogin: "2024-01-18 09:15 AM"
-    },
-    {
-      id: 4,
-      name: "Jane Contributor",
-      email: "jane@appletv.com",
-      role: "author",
-      status: "inactive",
-      createdAt: "2024-01-08",
-      lastLogin: "2024-01-10 02:20 PM"
-    },
-  ]);
+  const { user: currentUser, isAdmin } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("All");
@@ -53,12 +22,134 @@ export default function AdminUsers() {
   const [formData, setFormData] = useState({});
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    admins: 0,
+    editors: 0,
+    authors: 0
+  });
+
+  // Load users from Firebase
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const fetchedUsers = await getAllUsers();
+      
+      // Transform Firebase user data to match our UI expectations
+      const transformedUsers = fetchedUsers.map(user => {
+        // Format dates properly
+        let createdDate = 'Unknown';
+        if (user.createdAt) {
+          try {
+            const date = new Date(user.createdAt);
+            createdDate = date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            });
+          } catch (e) {
+            createdDate = 'Unknown';
+          }
+        }
+
+        let lastLoginDate = 'Never';
+        if (user.lastLogin) {
+          try {
+            const date = new Date(user.lastLogin);
+            lastLoginDate = date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            });
+          } catch (e) {
+            lastLoginDate = 'Never';
+          }
+        }
+
+        return {
+          id: user.uid,
+          uid: user.uid,
+          name: user.name || user.displayName || 'Unknown User',
+          email: user.email || 'No email',
+          role: user.role || 'author',
+          status: user.status || 'active',
+          createdAt: createdDate,
+          lastLogin: lastLoginDate,
+          loginMethod: user.photoURL ? 'Google' : 'Email',
+          photoURL: user.photoURL || null,
+          articlesCount: user.articlesCount || 0,
+          submissionsCount: user.submissionsCount || 0
+        };
+      });
+      
+      setUsers(transformedUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      addToast('Failed to load users. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh users
+  const refreshUsers = async () => {
+    setRefreshing(true);
+    await loadUsers();
+    setRefreshing(false);
+    addToast('Users refreshed successfully', 'success');
+  };
+
+  // Load users on component mount
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  // Calculate stats when users change
+  useEffect(() => {
+    const newStats = {
+      total: users.length,
+      active: users.filter(u => u.status === 'active').length,
+      inactive: users.filter(u => u.status === 'inactive').length,
+      admins: users.filter(u => u.role === 'admin').length,
+      editors: users.filter(u => u.role === 'editor').length,
+      authors: users.filter(u => u.role === 'author').length
+    };
+    setStats(newStats);
+  }, [users]);
 
   const roles = [
-    { value: "admin", label: "Admin", description: "Full access to all features and settings" },
-    { value: "editor", label: "Editor", description: "Can manage content, users, and most settings" },
-    { value: "author", label: "Author", description: "Can create and edit own content only" }
+    { value: "admin", label: "Admin", description: "Full access to all features and settings", color: "bg-[#dc2626]/10 text-[#dc2626]", icon: Shield },
+    { value: "editor", label: "Editor", description: "Can manage content, users, and most settings", color: "bg-[#002fa7]/10 text-[#002fa7]", icon: FileEdit },
+    { value: "author", label: "Author", description: "Can create and edit own content only", color: "bg-[#047857]/10 text-[#047857]", icon: UserCheck }
   ];
+
+  const getUserInitials = (name) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const canDeleteUser = (user) => {
+    // Only admins can delete users, and can't delete themselves
+    return isAdmin && user.uid !== currentUser?.uid;
+  };
+
+  const canEditUser = (user) => {
+    // Admins can edit anyone
+    if (isAdmin) return true;
+    // Editors can edit authors only
+    if (currentUser?.role === 'editor' && user.role === 'author') return true;
+    // Users can edit themselves
+    return user.uid === currentUser?.uid;
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -73,21 +164,14 @@ export default function AdminUsers() {
   };
 
   const getRoleIcon = (role) => {
-    switch(role) {
-      case "admin": return <Shield size={16} />;
-      case "editor": return <FileEdit size={16} />;
-      case "author": return <UserCheck size={16} />;
-      default: return <UserCheck size={16} />;
-    }
+    const roleData = roles.find(r => r.value === role);
+    const IconComponent = roleData?.icon || UserCheck;
+    return <IconComponent size={16} />;
   };
 
   const getRoleColor = (role) => {
-    switch(role) {
-      case "admin": return "bg-[#dc2626]/10 text-[#dc2626]";
-      case "editor": return "bg-[#002fa7]/10 text-[#002fa7]";
-      case "author": return "bg-[#047857]/10 text-[#047857]";
-      default: return "bg-[#8b91a5]/10 text-[#8b91a5]";
-    }
+    const roleData = roles.find(r => r.value === role);
+    return roleData?.color || "bg-[#8b91a5]/10 text-[#8b91a5]";
   };
 
   const getStatusColor = (status) => {
@@ -98,7 +182,7 @@ export default function AdminUsers() {
 
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ name: "", email: "", role: "author", status: "active", password: "" });
+    setFormData({ name: "", email: "", role: "author", status: "active", password: "applefamtv" });
     setShowModal(true);
   };
 
@@ -118,32 +202,60 @@ export default function AdminUsers() {
     setConfirmDialog({
       isOpen: true,
       title: "Delete User",
-      message: `Are you sure you want to permanently delete "${user.name}"? This action cannot be undone.`,
+      message: `Are you sure you want to permanently delete "${user.name}"? This will remove their profile from the system.`,
       type: "danger",
-      onConfirm: () => {
-        setUsers(users.filter(u => u.id !== user.id));
-        addToast("User deleted successfully", "success");
+      onConfirm: async () => {
+        try {
+          await deleteUserProfile(user.uid);
+          setUsers(users.filter(u => u.uid !== user.uid));
+          addToast("User deleted successfully", "success");
+        } catch (error) {
+          console.error('Error deleting user:', error);
+          addToast("Failed to delete user. Please try again.", "error");
+        }
         setConfirmDialog({ isOpen: false });
       },
       onCancel: () => setConfirmDialog({ isOpen: false })
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode === "add") {
-      const newUser = { 
-        ...formData, 
-        id: Date.now(), 
-        createdAt: new Date().toISOString().split('T')[0],
-        lastLogin: "Never"
-      };
-      setUsers([newUser, ...users]);
-      addToast("User created successfully", "success");
-    } else if (modalMode === "edit") {
-      setUsers(users.map(u => u.id === formData.id ? formData : u));
-      addToast("User updated successfully", "success");
+    setCreating(true);
+    
+    try {
+      if (modalMode === "add") {
+        const newUser = await createUser(formData.email, formData.password || "applefamtv", {
+          name: formData.name,
+          role: formData.role,
+          status: formData.status
+        });
+        
+        setUsers([newUser, ...users]);
+        addToast(`User invitation created for ${formData.email}. They should register at the registration page with email: ${formData.email} and password: applefamtv`, "success");
+      } else if (modalMode === "edit") {
+        await updateUserProfileById(formData.uid, {
+          name: formData.name,
+          role: formData.role,
+          status: formData.status
+        });
+        
+        setUsers(users.map(u => u.uid === formData.uid ? {
+          ...u,
+          name: formData.name,
+          role: formData.role,
+          status: formData.status
+        } : u));
+        
+        addToast("User updated successfully", "success");
+      }
+    } catch (error) {
+      console.error('Error saving user:', error);
+      addToast(error.message || "Failed to save user. Please try again.", "error");
+    } finally {
+      setCreating(false);
     }
+    
     setShowModal(false);
   };
 
@@ -166,13 +278,25 @@ export default function AdminUsers() {
           <h1 className="text-[24px] sm:text-[28px] lg:text-[32px] font-playfair font-black text-[#0b1020] mb-2">Users</h1>
           <p className="text-[13px] sm:text-[14px] text-[#5a6073]">Manage admin users and permissions</p>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
-        >
-          <Plus size={20} />
-          Add User
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={refreshUsers}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 text-[#002fa7] border border-[#002fa7] text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#002fa7] hover:text-white transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {isAdmin && (
+            <button 
+              onClick={handleAdd}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
+            >
+              <Plus size={20} />
+              Add User
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Role Info Cards */}
@@ -188,6 +312,43 @@ export default function AdminUsers() {
             <p className="text-[13px] text-[#5a6073]">{role.description}</p>
           </div>
         ))}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg border border-[#e3e6ee] p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#002fa7]/10 text-[#002fa7] rounded">
+              <Users size={20} />
+            </div>
+            <div>
+              <p className="text-[24px] font-bold text-[#0b1020]">{stats.total}</p>
+              <p className="text-[12px] text-[#5a6073]">Total Users</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg border border-[#e3e6ee] p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#047857]/10 text-[#047857] rounded">
+              <Activity size={20} />
+            </div>
+            <div>
+              <p className="text-[24px] font-bold text-[#0b1020]">{stats.active}</p>
+              <p className="text-[12px] text-[#5a6073]">Active</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg border border-[#e3e6ee] p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#dc2626]/10 text-[#dc2626] rounded">
+              <Shield size={20} />
+            </div>
+            <div>
+              <p className="text-[24px] font-bold text-[#0b1020]">{stats.admins}</p>
+              <p className="text-[12px] text-[#5a6073]">Admins</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -227,7 +388,12 @@ export default function AdminUsers() {
 
       {/* Users Table - Desktop */}
       <div className="hidden md:block bg-white rounded-lg border border-[#e3e6ee] overflow-hidden">
-        {filteredUsers.length === 0 ? (
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="w-8 h-8 border-2 border-[#002fa7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[14px] text-[#5a6073]">Loading users...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
               <Plus size={32} className="text-[#8b91a5]" />
@@ -235,7 +401,7 @@ export default function AdminUsers() {
             <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Users Found</h3>
             <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto mb-6">
               {filterRole === "All" && filterStatus === "All" && !searchTerm
-                ? "No users available. Click 'Add User' to create your first user."
+                ? "No users available. Users will appear here once they sign up."
                 : "No users match your current filters. Try adjusting your search criteria."}
             </p>
           </div>
@@ -255,8 +421,35 @@ export default function AdminUsers() {
             {filteredUsers.map((user) => (
               <tr key={user.id} className="border-b border-[#e3e6ee] hover:bg-[#f6f7fb] transition-colors">
                 <td className="px-6 py-4">
-                  <div className="text-[14px] font-semibold text-[#0b1020]">{user.name}</div>
-                  <div className="text-[12px] text-[#5a6073]">{user.email}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      {user.photoURL ? (
+                        <img 
+                          src={user.photoURL} 
+                          alt={user.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-[#002fa7] rounded-full flex items-center justify-center text-white text-[12px] font-bold">
+                          {getUserInitials(user.name)}
+                        </div>
+                      )}
+                      {user.uid === currentUser?.uid && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white"></div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-semibold text-[#0b1020]">{user.name}</span>
+                        {user.uid === currentUser?.uid && (
+                          <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] text-[#5a6073]">{user.email}</div>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center gap-2 px-3 py-1 text-[11px] font-bold uppercase rounded ${getRoleColor(user.role)}`}>
@@ -282,15 +475,25 @@ export default function AdminUsers() {
                     </button>
                     <button 
                       onClick={() => handleEdit(user)}
-                      className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
-                      title="Edit"
+                      disabled={!canEditUser(user)}
+                      className={`p-2 rounded transition-colors ${
+                        canEditUser(user)
+                          ? 'text-[#047857] hover:bg-[#047857]/10'
+                          : 'text-[#8b91a5] cursor-not-allowed'
+                      }`}
+                      title={canEditUser(user) ? "Edit" : "Cannot edit this user"}
                     >
                       <Edit size={18} />
                     </button>
                     <button
                       onClick={() => handleDelete(user)}
-                      className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
-                      title="Delete"
+                      disabled={!canDeleteUser(user)}
+                      className={`p-2 rounded transition-colors ${
+                        canDeleteUser(user)
+                          ? 'text-[#dc2626] hover:bg-[#dc2626]/10'
+                          : 'text-[#8b91a5] cursor-not-allowed'
+                      }`}
+                      title={canDeleteUser(user) ? "Delete" : user.uid === currentUser?.uid ? "Cannot delete yourself" : "Only Admins can delete users"}
                     >
                       <Trash2 size={18} />
                     </button>
@@ -305,7 +508,12 @@ export default function AdminUsers() {
 
       {/* Users Cards - Mobile */}
       <div className="md:hidden space-y-4">
-        {filteredUsers.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-lg border border-[#e3e6ee] p-8 text-center">
+            <div className="w-8 h-8 border-2 border-[#002fa7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[14px] text-[#5a6073]">Loading users...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
           <div className="bg-white rounded-lg border border-[#e3e6ee] p-8 text-center">
             <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
               <Plus size={32} className="text-[#8b91a5]" />
@@ -313,7 +521,7 @@ export default function AdminUsers() {
             <h3 className="text-[16px] font-bold text-[#0b1020] mb-2">No Users Found</h3>
             <p className="text-[13px] text-[#5a6073] mb-4">
               {filterRole === "All" && filterStatus === "All" && !searchTerm
-                ? "No users available. Click 'Add User' to create your first user."
+                ? "No users available. Users will appear here once they sign up."
                 : "No users match your current filters. Try adjusting your search criteria."}
             </p>
           </div>
@@ -321,9 +529,34 @@ export default function AdminUsers() {
           filteredUsers.map((user) => (
           <div key={user.id} className="bg-white rounded-lg border border-[#e3e6ee] p-4">
             <div className="flex items-start justify-between mb-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[15px] font-bold text-[#0b1020] mb-1 truncate">{user.name}</h3>
-                <p className="text-[13px] text-[#5a6073] truncate">{user.email}</p>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="relative flex-shrink-0">
+                  {user.photoURL ? (
+                    <img 
+                      src={user.photoURL} 
+                      alt={user.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-[#002fa7] rounded-full flex items-center justify-center text-white text-[14px] font-bold">
+                      {getUserInitials(user.name)}
+                    </div>
+                  )}
+                  {user.uid === currentUser?.uid && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white"></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-[15px] font-bold text-[#0b1020] truncate">{user.name}</h3>
+                    {user.uid === currentUser?.uid && (
+                      <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded flex-shrink-0">
+                        YOU
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[13px] text-[#5a6073] truncate">{user.email}</p>
+                </div>
               </div>
               <span className={`px-3 py-1 text-[11px] font-bold uppercase rounded ${getStatusColor(user.status)} ml-2 flex-shrink-0`}>
                 {user.status}
@@ -358,14 +591,25 @@ export default function AdminUsers() {
               </button>
               <button 
                 onClick={() => handleEdit(user)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                disabled={!canEditUser(user)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-semibold border rounded transition-colors ${
+                  canEditUser(user)
+                    ? 'text-[#047857] border-[#047857] hover:bg-[#047857] hover:text-white'
+                    : 'text-[#8b91a5] border-[#8b91a5] cursor-not-allowed'
+                }`}
               >
                 <Edit size={16} />
                 Edit
               </button>
               <button
                 onClick={() => handleDelete(user)}
-                className="p-2 text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                disabled={!canDeleteUser(user)}
+                className={`p-2 border rounded transition-colors ${
+                  canDeleteUser(user)
+                    ? 'text-[#dc2626] border-[#dc2626] hover:bg-[#dc2626] hover:text-white'
+                    : 'text-[#8b91a5] border-[#8b91a5] cursor-not-allowed'
+                }`}
+                title={canDeleteUser(user) ? "Delete" : user.uid === currentUser?.uid ? "Cannot delete yourself" : "Only Admins can delete users"}
               >
                 <Trash2 size={16} />
               </button>
@@ -473,16 +717,20 @@ export default function AdminUsers() {
               </div>
               <div>
                 <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">
-                  {modalMode === "add" ? "Password" : "New Password (leave blank to keep current)"}
+                  {modalMode === "add" ? "Password (Default: applefamtv)" : "New Password (leave blank to keep current)"}
                 </label>
                 <input
                   type="password"
                   value={formData.password || ""}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-3 border border-[#e3e6ee] rounded text-[14px] focus:outline-none focus:border-[#002fa7]"
-                  required={modalMode === "add"}
-                  placeholder={modalMode === "edit" ? "Leave blank to keep current password" : ""}
+                  placeholder={modalMode === "add" ? "applefamtv" : "Leave blank to keep current password"}
                 />
+                {modalMode === "add" && (
+                  <p className="text-[12px] text-[#047857] mt-2 bg-[#047857]/10 p-3 rounded">
+                    <strong>Important:</strong> After creating this user, they must register themselves at the registration page using their email and the password "applefamtv". They can then change their password in their profile settings.
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
@@ -495,9 +743,11 @@ export default function AdminUsers() {
               </button>
               <button
                 type="submit"
-                className="px-6 py-3 text-[14px] font-semibold text-white bg-[#002fa7] rounded hover:bg-[#0026c4] transition-colors"
+                disabled={creating}
+                className="px-6 py-3 text-[14px] font-semibold text-white bg-[#002fa7] rounded hover:bg-[#0026c4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {modalMode === "add" ? "Create User" : "Save Changes"}
+                {creating && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                {modalMode === "add" ? (creating ? "Creating..." : "Create User") : "Save Changes"}
               </button>
             </div>
           </form>

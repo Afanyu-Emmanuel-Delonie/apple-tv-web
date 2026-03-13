@@ -1,12 +1,66 @@
-import { useParams, Link } from "react-router-dom";
-import { events, eventCategories } from "../constants/events";
-import { useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { getById, getAll, COLLECTIONS } from "../services/firebase/firestore";
+import { eventCategories } from "../constants/events";
 import OpportunitiesCTA from "../components/OpportunitiesCTA";
 
 export default function EventDetailsPage() {
   const { id } = useParams();
-  const event = events.find((e) => e.id === parseInt(id));
+  const navigate = useNavigate();
+  const [event, setEvent] = useState(null);
+  const [relatedEvents, setRelatedEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetchEventDetails();
+  }, [id]);
+
+  const fetchEventDetails = async () => {
+    try {
+      setLoading(true);
+      const eventData = await getById(COLLECTIONS.EVENTS, id);
+      setEvent(eventData);
+
+      if (eventData) {
+        const allEvents = await getAll(COLLECTIONS.EVENTS);
+        const related = allEvents.filter(
+          (e) => e.category === eventData.category && e.id !== id && e.status === "active"
+        ).slice(0, 3);
+        setRelatedEvents(related);
+      }
+    } catch (error) {
+      console.error('Error fetching event:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getGradientBackground = (title) => {
+    const gradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    ];
+    const index = title.charCodeAt(0) % gradients.length;
+    return gradients[index];
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[14px] text-[#5a6073]">Loading event...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -20,8 +74,8 @@ export default function EventDetailsPage() {
   }
 
   const categoryColor = eventCategories.find((cat) => cat.name === event.category)?.color || "#002fa7";
-  const relatedEvents = events.filter((e) => e.category === event.category && e.id !== event.id).slice(0, 3);
-
+  const imageUrl = event.imageUrl;
+  const formattedDate = event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'TBA';
   const currentUrl = window.location.href;
   const shareText = `Check out this event: ${event.title}`;
 
@@ -48,9 +102,28 @@ export default function EventDetailsPage() {
 
   return (
     <div className="bg-white">
+      {/* Back Button */}
+      <div className="bg-white border-b border-[#e3e6ee]">
+        <div className="max-w-[900px] mx-auto px-6 py-4">
+          <button
+            onClick={() => navigate('/events')}
+            className="flex items-center gap-2 text-[14px] font-semibold text-[#002fa7] hover:text-[#0026c4] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Events
+          </button>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div className="relative h-[60vh] md:h-[70vh] bg-black">
-        <img src={event.image} alt={event.title} className="w-full h-full object-cover opacity-80" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={event.title} className="w-full h-full object-cover opacity-80" />
+        ) : (
+          <div className="w-full h-full opacity-80" style={{ background: getGradientBackground(event.title) }} />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 max-w-[900px] mx-auto px-6 pb-12">
           <div className="flex items-center gap-2 mb-4">
@@ -71,7 +144,7 @@ export default function EventDetailsPage() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="font-medium text-white">{event.date}</span>
+              <span className="font-medium text-white">{formattedDate}</span>
             </div>
             <span>•</span>
             <div className="flex items-center gap-2">
@@ -93,7 +166,7 @@ export default function EventDetailsPage() {
             <div className="text-center">
               <div className="w-3 h-3 rounded-full bg-[#002fa7] mx-auto mb-3" />
               <div className="text-[13px] text-[#8b91a5] uppercase tracking-wide mb-1">Date</div>
-              <div className="text-[18px] font-bold text-[#0b1020]">{event.date}</div>
+              <div className="text-[18px] font-bold text-[#0b1020]">{formattedDate}</div>
             </div>
             <div className="text-center">
               <div className="w-3 h-3 rounded-full bg-[#002fa7] mx-auto mb-3" />
@@ -109,24 +182,16 @@ export default function EventDetailsPage() {
         </div>
 
         {/* Description */}
-        <div className="prose prose-lg max-w-none mb-8">
-          <h2 className="text-[28px] font-playfair font-black text-[#0b1020] mb-4">About This Event</h2>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            {event.excerpt}
-          </p>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Join us for an incredible experience that brings together industry leaders, innovators, and enthusiasts. This event offers unique networking opportunities, insightful presentations, and hands-on workshops designed to enhance your skills and expand your professional network.
-          </p>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Whether you're a seasoned professional or just starting your journey, this event provides valuable insights and connections that can help advance your career and broaden your horizons.
-          </p>
-        </div>
+        {event.description && (
+          <div className="prose prose-lg max-w-none mb-8">
+            <h2 className="text-[28px] font-playfair font-black text-[#0b1020] mb-4">About This Event</h2>
+            <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6 whitespace-pre-line">
+              {event.description}
+            </p>
+          </div>
+        )}
 
-        {/* Organizer Info */}
-        <div className="bg-white border border-[#e3e6ee] rounded-xl p-6 mb-8">
-          <h3 className="text-[20px] font-bold text-[#0b1020] mb-2">Organized By</h3>
-          <p className="text-[16px] text-[#5a6073]">{event.organizer}</p>
-        </div>
+
 
         {/* Registration CTA */}
         <div className="bg-gradient-to-br from-[#002fa7] to-[#0066cc] rounded-2xl p-8 mb-8 text-center">
@@ -135,7 +200,7 @@ export default function EventDetailsPage() {
             Secure your spot now and be part of this amazing event. Registration is quick and easy.
           </p>
           <button 
-            onClick={() => window.open('#', '_blank')}
+            onClick={() => event.registrationLink && window.open(event.registrationLink, '_blank')}
             className="px-8 py-4 bg-white text-[#002fa7] text-[14px] font-bold rounded hover:bg-[#f8f9fa] transition-all duration-200 inline-flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -208,28 +273,37 @@ export default function EventDetailsPage() {
           <div className="max-w-[1200px] mx-auto px-6">
             <h2 className="text-[32px] font-playfair font-black text-[#0b1020] mb-8">Similar Events</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {relatedEvents.map((related) => (
-                <Link key={related.id} to={`/event/${related.id}`} className="group">
-                  <div className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                    <div className="relative h-48 overflow-hidden">
-                      <img src={related.image} alt={related.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    </div>
-                    <div className="p-5">
-                      <span className="inline-block px-2 py-1 text-white text-[9px] font-bold tracking-[0.1em] uppercase rounded mb-3" style={{ backgroundColor: categoryColor }}>
-                        {related.category}
-                      </span>
-                      <h3 className="text-[18px] font-semibold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors">
-                        {related.title}
-                      </h3>
-                      <p className="text-[14px] text-[#5a6073] line-clamp-2 mb-3">{related.excerpt}</p>
-                      <div className="flex items-center justify-between text-[12px] text-[#8b91a5]">
-                        <span>{related.date}</span>
-                        <span className="font-bold text-[#002fa7]">{related.price}</span>
+              {relatedEvents.map((related) => {
+                const relatedImageUrl = related.imageUrl;
+                const relatedDate = related.date ? new Date(related.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'TBA';
+                const relatedExcerpt = related.description ? related.description.substring(0, 100) + '...' : 'No description available';
+                return (
+                  <Link key={related.id} to={`/event/${related.id}`} className="group">
+                    <div className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="relative h-48 overflow-hidden">
+                        {relatedImageUrl ? (
+                          <img src={relatedImageUrl} alt={related.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        ) : (
+                          <div className="w-full h-full transition-transform duration-300 group-hover:scale-105" style={{ background: getGradientBackground(related.title) }} />
+                        )}
+                      </div>
+                      <div className="p-5">
+                        <span className="inline-block px-2 py-1 text-white text-[9px] font-bold tracking-[0.1em] uppercase rounded mb-3" style={{ backgroundColor: categoryColor }}>
+                          {related.category}
+                        </span>
+                        <h3 className="text-[18px] font-semibold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors">
+                          {related.title}
+                        </h3>
+                        <p className="text-[14px] text-[#5a6073] line-clamp-2 mb-3">{relatedExcerpt}</p>
+                        <div className="flex items-center justify-between text-[12px] text-[#8b91a5]">
+                          <span>{relatedDate}</span>
+                          <span className="font-bold text-[#002fa7]">{related.price}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>

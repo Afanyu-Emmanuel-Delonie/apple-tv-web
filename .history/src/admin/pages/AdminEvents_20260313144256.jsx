@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Calendar, RefreshCw, Upload, X } from "lucide-react";
 import { getAll, create, update, remove, COLLECTIONS } from "../../services/firebase/firestore";

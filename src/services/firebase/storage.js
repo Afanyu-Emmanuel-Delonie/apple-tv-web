@@ -1,16 +1,7 @@
-// Firebase Storage Service
-// This file will be populated during Firebase integration
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { app } from './config';
 
-/**
- * Firebase Storage service
- * Handles file uploads, downloads, and management
- */
-
-// TODO: Import Firebase Storage
-// import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-// import { app } from './config';
-
-// export const storage = getStorage(app);
+export const storage = app ? getStorage(app) : null;
 
 /**
  * Storage paths
@@ -31,12 +22,11 @@ export const STORAGE_PATHS = {
  * @returns {Promise<string>} Download URL
  */
 export async function uploadFile(file, path, filename = null) {
-  // TODO: Implement Firebase Storage upload
-  // const name = filename || `${Date.now()}_${file.name}`;
-  // const storageRef = ref(storage, `${path}/${name}`);
-  // await uploadBytes(storageRef, file);
-  // return await getDownloadURL(storageRef);
-  throw new Error('Firebase Storage not yet implemented');
+  if (!storage) throw new Error('Firebase Storage not configured');
+  const name = filename || `${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, `${path}/${name}`);
+  await uploadBytes(storageRef, file);
+  return await getDownloadURL(storageRef);
 }
 
 /**
@@ -47,11 +37,8 @@ export async function uploadFile(file, path, filename = null) {
  * @returns {Promise<string>} Download URL
  */
 export async function uploadImage(file, path, maxWidth = 1200) {
-  // TODO: Implement image upload with compression
-  // 1. Compress image if needed
-  // 2. Upload to Firebase Storage
-  // 3. Return download URL
-  throw new Error('Firebase Storage not yet implemented');
+  if (!storage) throw new Error('Firebase Storage not configured');
+  return await uploadFile(file, path);
 }
 
 /**
@@ -60,10 +47,9 @@ export async function uploadImage(file, path, maxWidth = 1200) {
  * @returns {Promise<void>}
  */
 export async function deleteFile(fileUrl) {
-  // TODO: Implement Firebase Storage delete
-  // const storageRef = ref(storage, fileUrl);
-  // return await deleteObject(storageRef);
-  throw new Error('Firebase Storage not yet implemented');
+  if (!storage) throw new Error('Firebase Storage not configured');
+  const storageRef = ref(storage, fileUrl);
+  return await deleteObject(storageRef);
 }
 
 /**
@@ -72,10 +58,9 @@ export async function deleteFile(fileUrl) {
  * @returns {Promise<string>} Download URL
  */
 export async function getFileURL(path) {
-  // TODO: Implement get download URL
-  // const storageRef = ref(storage, path);
-  // return await getDownloadURL(storageRef);
-  throw new Error('Firebase Storage not yet implemented');
+  if (!storage) throw new Error('Firebase Storage not configured');
+  const storageRef = ref(storage, path);
+  return await getDownloadURL(storageRef);
 }
 
 /**
@@ -85,8 +70,7 @@ export async function getFileURL(path) {
  * @returns {Promise<string[]>} Array of download URLs
  */
 export async function uploadMultipleFiles(files, path) {
-  // TODO: Implement multiple file upload
-  // const uploadPromises = files.map(file => uploadFile(file, path));
-  // return await Promise.all(uploadPromises);
-  throw new Error('Firebase Storage not yet implemented');
+  if (!storage) throw new Error('Firebase Storage not configured');
+  const uploadPromises = files.map(file => uploadFile(file, path));
+  return await Promise.all(uploadPromises);
 }

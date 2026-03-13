@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Calendar, RefreshCw, Upload, X } from "lucide-react";
 import { getAll, create, update, remove, COLLECTIONS } from "../../services/firebase/firestore";
@@ -303,7 +304,7 @@ export default function AdminEvents() {
         ) : filteredEvents.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Calendar size={32} className="text-[#8b91a5]" />
+              <Ca size={32} className="text-[#8b91a5]" />
             </div>
             <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Events Found</h3>
             <p className="text-[14px] text-[#5a6073] max-w-[400px] mx-auto mb-6">

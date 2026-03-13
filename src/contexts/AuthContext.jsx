@@ -1,4 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  signIn as firebaseSignIn,
+  signUp as firebaseSignUp,
+  signOutUser,
+  signInWithGoogle,
+  onAuthStateChanged,
+  updateUserProfile as firebaseUpdateProfile,
+  getUserProfile,
+  isAdmin
+} from '../services/firebase/auth';
 
 const AuthContext = createContext(null);
 
@@ -7,66 +17,68 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Initialize Firebase auth listener
-    // For now, check localStorage for demo purposes
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get user profile from Firestore
+        const userProfile = await getUserProfile(firebaseUser.uid);
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          ...userProfile
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
   }, []);
 
   const login = async (email, password) => {
-    // TODO: Implement Firebase authentication
-    // For now, demo implementation
-    const demoUser = {
-      id: '1',
-      email: email,
-      name: 'Admin User',
-      role: 'admin'
-    };
-    setUser(demoUser);
-    localStorage.setItem('currentUser', JSON.stringify(demoUser));
-    return demoUser;
+    const user = await firebaseSignIn(email, password);
+    return user;
+  };
+
+  const loginWithGoogle = async () => {
+    const user = await signInWithGoogle();
+    return user;
   };
 
   const register = async (email, password, name, role = 'author') => {
-    // TODO: Implement Firebase registration
-    const newUser = {
-      id: Date.now().toString(),
-      email: email,
-      name: name,
-      role: role
-    };
-    setUser(newUser);
-    localStorage.setItem('currentUser', JSON.stringify(newUser));
-    return newUser;
+    const user = await firebaseSignUp(email, password, { name, role });
+    return user;
   };
 
   const logout = async () => {
-    // TODO: Implement Firebase logout
-    setUser(null);
-    localStorage.removeItem('currentUser');
+    await signOutUser();
   };
 
   const updateProfile = async (updates) => {
-    // TODO: Implement Firebase profile update
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    return updatedUser;
+    await firebaseUpdateProfile(updates);
+    // Update local state
+    setUser(prev => ({ ...prev, ...updates }));
+  };
+
+  const resetPassword = async (email) => {
+    const { resetPassword: firebaseResetPassword } = await import('../services/firebase/auth');
+    await firebaseResetPassword(email);
   };
 
   const value = {
     user,
     loading,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateProfile,
+    resetPassword,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
-    isEditor: user?.role === 'editor' || user?.role === 'admin',
+    isAdmin: user?.role === 'admin' || user?.email === 'afanyuemma2002@gmail.com',
+    isEditor: user?.role === 'editor' || user?.role === 'admin' || user?.email === 'afanyuemma2002@gmail.com',
     isAuthor: !!user
   };
 

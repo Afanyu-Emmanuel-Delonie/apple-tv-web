@@ -1,13 +1,21 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, Settings, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
+import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, User, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
+import OpportunityExpirationJob from "../../components/OpportunityExpirationJob";
+import EventExpirationJob from "../../components/EventExpirationJob";
 
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -20,6 +28,43 @@ export default function AdminLayout() {
     
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleLogout = async () => {
+    console.log('handleLogout called');
+    try {
+      console.log('Calling logout function...');
+      await logout();
+      console.log('Logout successful');
+      showToast('Logged out successfully!', 'success');
+      setTimeout(() => navigate("/admin/login"), 1000);
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('Error logging out. Please try again.', 'error');
+    }
+    setShowLogoutDialog(false);
+  };
+
+  const getUserInitials = () => {
+    if (user?.displayName) {
+      return user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.name) {
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  const getUserDisplayName = () => {
+    return user?.displayName || user?.name || user?.email || 'User';
+  };
 
   const notifications = [
     {
@@ -78,19 +123,26 @@ export default function AdminLayout() {
     { label: "Submissions", path: "/admin/submissions", icon: Inbox },
     { label: "Events", path: "/admin/events", icon: Calendar },
     { label: "Opportunities", path: "/admin/opportunities", icon: Briefcase },
-    { label: "Users", path: "/admin/users", icon: Users },
-    { label: "Settings", path: "/admin/settings", icon: Settings },
+    { label: "Users", path: "/admin/users", icon: Users, roles: ['admin', 'editor'] },
+    { label: "Profile", path: "/admin/profile", icon: User },
   ];
 
-  const handleLogout = () => {
-    // TODO: Implement actual logout logic
-    navigate("/admin/login");
-  };
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.roles) {
+      return item.roles.includes(user?.role);
+    }
+    return true;
+  });
 
   const isActive = (path) => location.pathname === path;
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] flex">
+      {/* Background Jobs for Auto-Expiration */}
+      <OpportunityExpirationJob />
+      <EventExpirationJob />
+      
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -130,7 +182,7 @@ export default function AdminLayout() {
 
           {/* Navigation */}
           <nav className="flex-1 py-6 px-3 overflow-y-auto">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -159,7 +211,10 @@ export default function AdminLayout() {
           {/* Footer */}
           <div className="border-t border-[#e3e6ee] p-4">
             <button
-              onClick={handleLogout}
+              onClick={() => {
+                console.log('Logout button clicked');
+                setShowLogoutDialog(true);
+              }}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium text-[#dc2626] hover:bg-[#dc2626]/10 transition-all"
               title={!sidebarOpen ? "Logout" : ""}
             >
@@ -272,8 +327,8 @@ export default function AdminLayout() {
               <ExternalLink size={16} />
               <span className="hidden md:inline">View Site</span>
             </Link>
-            <div className="w-10 h-10 bg-[#002fa7] rounded-full flex items-center justify-center text-white font-bold text-[14px]">
-              A
+            <div className="w-10 h-10 bg-[#002fa7] rounded-full flex items-center justify-center text-white font-bold text-[14px]" title={getUserDisplayName()}>
+              {getUserInitials()}
             </div>
           </div>
         </header>
@@ -283,6 +338,29 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && (
+        <ConfirmDialog
+          isOpen={showLogoutDialog}
+          title="Confirm Logout"
+          message="Are you sure you want to logout? You will need to sign in again to access the admin panel."
+          confirmText="Logout"
+          cancelText="Cancel"
+          onConfirm={handleLogout}
+          onClose={() => setShowLogoutDialog(false)}
+          type="danger"
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

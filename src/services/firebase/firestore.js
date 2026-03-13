@@ -1,16 +1,7 @@
-// Firebase Firestore Service
-// This file will be populated during Firebase integration
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { app } from './config';
 
-/**
- * Firestore database service
- * Handles CRUD operations for all collections
- */
-
-// TODO: Import Firestore
-// import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
-// import { app } from './config';
-
-// export const db = getFirestore(app);
+export const db = app ? getFirestore(app) : null;
 
 /**
  * Collection names
@@ -30,10 +21,9 @@ export const COLLECTIONS = {
  * @returns {Promise<Array>} Array of documents
  */
 export async function getAll(collectionName) {
-  // TODO: Implement Firestore query
-  // const querySnapshot = await getDocs(collection(db, collectionName));
-  // return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const querySnapshot = await getDocs(collection(db, collectionName));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 /**
@@ -43,11 +33,10 @@ export async function getAll(collectionName) {
  * @returns {Promise<object>} Document data
  */
 export async function getById(collectionName, id) {
-  // TODO: Implement Firestore query
-  // const docRef = doc(db, collectionName, id);
-  // const docSnap = await getDoc(docRef);
-  // return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const docRef = doc(db, collectionName, id);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
 }
 
 /**
@@ -57,14 +46,13 @@ export async function getById(collectionName, id) {
  * @returns {Promise<string>} Document ID
  */
 export async function create(collectionName, data) {
-  // TODO: Implement Firestore create
-  // const docRef = await addDoc(collection(db, collectionName), {
-  //   ...data,
-  //   createdAt: new Date(),
-  //   updatedAt: new Date()
-  // });
-  // return docRef.id;
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const docRef = await addDoc(collection(db, collectionName), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return docRef.id;
 }
 
 /**
@@ -75,13 +63,12 @@ export async function create(collectionName, data) {
  * @returns {Promise<void>}
  */
 export async function update(collectionName, id, data) {
-  // TODO: Implement Firestore update
-  // const docRef = doc(db, collectionName, id);
-  // return await updateDoc(docRef, {
-  //   ...data,
-  //   updatedAt: new Date()
-  // });
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const docRef = doc(db, collectionName, id);
+  return await updateDoc(docRef, {
+    ...data,
+    updatedAt: serverTimestamp()
+  });
 }
 
 /**
@@ -91,10 +78,9 @@ export async function update(collectionName, id, data) {
  * @returns {Promise<void>}
  */
 export async function remove(collectionName, id) {
-  // TODO: Implement Firestore delete
-  // const docRef = doc(db, collectionName, id);
-  // return await deleteDoc(docRef);
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const docRef = doc(db, collectionName, id);
+  return await deleteDoc(docRef);
 }
 
 /**
@@ -104,11 +90,10 @@ export async function remove(collectionName, id) {
  * @returns {Promise<Array>} Filtered documents
  */
 export async function queryDocuments(collectionName, filters = []) {
-  // TODO: Implement Firestore query with filters
-  // const q = query(collection(db, collectionName), ...filters);
-  // const querySnapshot = await getDocs(q);
-  // return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  throw new Error('Firestore not yet implemented');
+  if (!db) throw new Error('Firestore not configured');
+  const q = query(collection(db, collectionName), ...filters);
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 /**

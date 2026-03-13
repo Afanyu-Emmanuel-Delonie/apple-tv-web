@@ -284,7 +284,7 @@ export default function AdminRegister() {
 
             <div className="mt-6 text-center">
               <p className="text-[12px] text-[#9ba8b8]">
-                Already have an account? <Link to="/admin/login" className="text-[#002fa7] font-semibold hover:underline">Sign in</Link>
+                Already have an account? <Link to="/admin/login" className="text-red-500 font-semibold hover:underline">Sign in</Link>
               </p>
             </div>
           </form>
