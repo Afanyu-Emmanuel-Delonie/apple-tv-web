@@ -1,14 +1,23 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw } from "lucide-react";
-import { events } from "../../constants/events";
+import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Eye, Search, Clock, RotateCcw, Calendar, RefreshCw, Upload, X, Lock } from "lucide-react";
+import { getAll, createWithDuplicateCheck, updateWithDuplicateCheck, remove, update, createContentNotification, COLLECTIONS } from "../../services/firebase/firestore";
+import { uploadImage, STORAGE_PATHS } from "../../services/firebase/storage";
+import { processExpiredEvents, getDaysUntilDeletion } from "../../services/firebase/eventService";
+import { useAuth } from "../../contexts/AuthContext";
+import { hasPermission, canModifyItem, filterItemsByPermission, PERMISSIONS } from "../../utils/permissions";
+import PageLoader from "../../components/PageLoader";
+import { usePageReloadLoader } from "../../hooks/useSessionLoader";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminEvents() {
-  const [eventsList, setEventsList] = useState(
-    events.map(event => ({ ...event, status: "active", expiryDate: null }))
-  );
+  const { user } = useAuth();
+  const [eventsList, setEventsList] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const showLoader = usePageReloadLoader([loading], 1200);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -16,34 +25,96 @@ export default function AdminEvents() {
   const [modalMode, setModalMode] = useState("add");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [formData, setFormData] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
 
   const categories = ["All", "Conference", "Workshop", "Networking", "Career Fair", "Webinar", "Summit"];
 
-  const filteredEvents = eventsList.filter(event => {
-    const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "All" || event.category === filterCategory;
-    const matchesStatus = filterStatus === "All" || event.status === filterStatus.toLowerCase();
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  useEffect(() => {
+    fetchEvents();
+    checkExpiredEvents();
+  }, []);
+
+  // Filter events based on user permissions and search/filter criteria
+  useEffect(() => {
+    let filtered = filterItemsByPermission(eventsList, user, 'event');
+    
+    // Apply search and category filters
+    filtered = filtered.filter(event => {
+      const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "All" || event.category === filterCategory;
+      const matchesStatus = filterStatus === "All" || event.status === filterStatus.toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+    
+    setFilteredEvents(filtered);
+  }, [eventsList, user, searchTerm, filterCategory, filterStatus]);
+
+  const checkExpiredEvents = async () => {
+    try {
+      const result = await processExpiredEvents();
+      if (result.success && result.processedCount > 0) {
+        addToast(`Processed ${result.processedCount} expired events`, 'info');
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error('Error checking expired events:', error);
+    }
+  };
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await getAll(COLLECTIONS.EVENTS);
+      setEventsList(data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      addToast('Failed to load events', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addToast = (message, type) => {
     setToast({ message, type });
   };
 
+  // Check permissions
+  const canCreateEvent = hasPermission(user, PERMISSIONS.CREATE_EVENT);
+  const canEditEvent = (event) => canModifyItem(user, event, 'edit', 'event');
+  const canDeleteEvent = (event) => canModifyItem(user, event, 'delete', 'event');
+
   const getDaysUntilDeletion = (expiryDate) => {
     if (!expiryDate) return null;
     const expiry = new Date(expiryDate);
-    const deleteDate = new Date(expiry.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const deleteDate = new Date(expiry.getTime() + 3 * 24 * 60 * 60 * 1000);
     const now = new Date();
     const daysLeft = Math.ceil((deleteDate - now) / (1000 * 60 * 60 * 24));
     return Math.max(0, daysLeft);
   };
 
   const handleAdd = () => {
+    if (!canCreateEvent) {
+      addToast('You do not have permission to create events', 'error');
+      return;
+    }
+    
     setModalMode("add");
-    setFormData({ title: "", category: "Conference", date: "", location: "", price: "", description: "" });
+    setFormData({ 
+      title: "", 
+      category: "Conference", 
+      date: "", 
+      location: "", 
+      price: "", 
+      description: "",
+      registrationLink: "",
+      imageUrl: "",
+      author: user?.displayName || user?.name || ""
+    });
+    setImageFile(null);
+    setImagePreview(null);
     setShowModal(true);
   };
 
@@ -54,20 +125,42 @@ export default function AdminEvents() {
   };
 
   const handleEdit = (event) => {
+    if (!canEditEvent(event)) {
+      addToast('You do not have permission to edit this event', 'error');
+      return;
+    }
+    
     setModalMode("edit");
     setFormData(event);
+    setImageFile(null);
+    setImagePreview(event.imageUrl || null);
     setShowModal(true);
   };
 
   const handleDelete = (event) => {
+    if (!canDeleteEvent(event)) {
+      addToast('You do not have permission to delete this event', 'error');
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: "Delete Event",
       message: `Are you sure you want to permanently delete "${event.title}"? This action cannot be undone.`,
       type: "danger",
-      onConfirm: () => {
-        setEventsList(eventsList.filter(e => e.id !== event.id));
-        addToast("Event deleted successfully", "success");
+      onConfirm: async () => {
+        try {
+          await remove(COLLECTIONS.EVENTS, event.id);
+          setEventsList(eventsList.filter(e => e.id !== event.id));
+          
+          // Create notification for deleted event
+          await createContentNotification(COLLECTIONS.EVENTS, event, user, 'deleted');
+          
+          addToast("Event deleted successfully", "success");
+        } catch (error) {
+          console.error('Error deleting event:', error);
+          addToast("Failed to delete event", "error");
+        }
         setConfirmDialog({ isOpen: false });
       },
       onCancel: () => setConfirmDialog({ isOpen: false })
@@ -78,38 +171,142 @@ export default function AdminEvents() {
     setConfirmDialog({
       isOpen: true,
       title: "Expire Event",
-      message: `Are you sure you want to expire "${event.title}"? It will be automatically deleted after 30 days.`,
+      message: `Are you sure you want to expire "${event.title}"? It will be automatically deleted after 3 days (in case of extensions).`,
       type: "warning",
-      onConfirm: () => {
-        setEventsList(eventsList.map(e => 
-          e.id === event.id ? { ...e, status: "expired", expiryDate: new Date().toISOString() } : e
-        ));
-        addToast("Event expired successfully", "warning");
+      onConfirm: async () => {
+        try {
+          await update(COLLECTIONS.EVENTS, event.id, { status: "expired", expiryDate: new Date().toISOString() });
+          const expiredEvent = { ...event, status: "expired", expiryDate: new Date().toISOString() };
+          setEventsList(eventsList.map(e => 
+            e.id === event.id ? expiredEvent : e
+          ));
+          
+          // Create notification for expired event
+          await createContentNotification(COLLECTIONS.EVENTS, expiredEvent, user, 'expired');
+          
+          addToast("Event expired successfully", "warning");
+        } catch (error) {
+          console.error('Error expiring event:', error);
+          addToast("Failed to expire event", "error");
+        }
         setConfirmDialog({ isOpen: false });
       },
       onCancel: () => setConfirmDialog({ isOpen: false })
     });
   };
 
-  const handleReactivate = (event) => {
-    setEventsList(eventsList.map(e => 
-      e.id === event.id ? { ...e, status: "active", expiryDate: null } : e
-    ));
-    addToast("Event reactivated successfully", "success");
+  const handleReactivate = async (event) => {
+    try {
+      await update(COLLECTIONS.EVENTS, event.id, { status: "active", expiryDate: null });
+      const reactivatedEvent = { ...event, status: "active", expiryDate: null };
+      setEventsList(eventsList.map(e => 
+        e.id === event.id ? reactivatedEvent : e
+      ));
+      
+      // Create notification for reactivated event
+      await createContentNotification(COLLECTIONS.EVENTS, reactivatedEvent, user, 'reactivated');
+      
+      addToast("Event reactivated successfully", "success");
+    } catch (error) {
+      console.error('Error reactivating event:', error);
+      addToast("Failed to reactivate event", "error");
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (modalMode === "add") {
-      const newEvent = { ...formData, id: Date.now(), status: "active", expiryDate: null };
-      setEventsList([newEvent, ...eventsList]);
-      addToast("Event added successfully", "success");
-    } else if (modalMode === "edit") {
-      setEventsList(eventsList.map(e => e.id === formData.id ? formData : e));
-      addToast("Event updated successfully", "success");
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        addToast("Image size should be less than 5MB", "error");
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
-    setShowModal(false);
   };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (modalMode === "edit") {
+      setFormData({ ...formData, imageUrl: "" });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setUploading(true);
+      let imageUrl = formData.imageUrl || "";
+      
+      // Upload image if new file selected
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile, STORAGE_PATHS.EVENTS);
+      }
+
+      if (modalMode === "add") {
+        const newEventData = { 
+          ...formData, 
+          imageUrl, 
+          status: "active", 
+          expiryDate: null,
+          createdBy: user?.uid,
+          author: formData.author || user?.displayName || user?.name || "Unknown"
+        };
+        try {
+          const newId = await createWithDuplicateCheck(COLLECTIONS.EVENTS, newEventData, false);
+          const newEvent = { id: newId, ...newEventData };
+          setEventsList([newEvent, ...eventsList]);
+          
+          // Create notification for new event
+          await createContentNotification(COLLECTIONS.EVENTS, newEvent, user, 'created');
+          
+          addToast("Event added successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
+      } else if (modalMode === "edit") {
+        const { id, createdAt, updatedAt, ...updateData } = formData;
+        const updatedData = { ...updateData, imageUrl };
+        try {
+          await updateWithDuplicateCheck(COLLECTIONS.EVENTS, formData.id, updatedData, false);
+          const updatedEvent = { ...formData, imageUrl };
+          setEventsList(eventsList.map(e => e.id === formData.id ? updatedEvent : e));
+          
+          // Create notification for updated event
+          await createContentNotification(COLLECTIONS.EVENTS, updatedEvent, user, 'updated');
+          
+          addToast("Event updated successfully", "success");
+        } catch (error) {
+          if (error.message.includes('Duplicate')) {
+            addToast(error.message, "error");
+            return;
+          }
+          throw error;
+        }
+      }
+      setShowModal(false);
+      setImageFile(null);
+      setImagePreview(null);
+    } catch (error) {
+      console.error('Error saving event:', error);
+      addToast("Failed to save event", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (showLoader) {
+    return <PageLoader isLoading={true} />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -130,13 +327,29 @@ export default function AdminEvents() {
           <h1 className="text-[24px] sm:text-[28px] lg:text-[32px] font-playfair font-black text-[#0b1020] mb-2">Events</h1>
           <p className="text-[13px] sm:text-[14px] text-[#5a6073]">Manage all events and conferences</p>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-[#002fa7] text-white text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#0026c4] transition-colors whitespace-nowrap"
-        >
-          <Plus size={20} />
-          Add Event
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={fetchEvents}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-[#e3e6ee] text-[#2c3348] text-[13px] sm:text-[14px] font-semibold rounded hover:bg-[#f6f7fb] transition-colors"
+            disabled={loading}
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <button 
+            onClick={handleAdd}
+            disabled={!canCreateEvent}
+            className={`flex items-center justify-center gap-2 px-6 py-3 text-[13px] sm:text-[14px] font-semibold rounded transition-colors whitespace-nowrap ${
+              canCreateEvent 
+                ? "bg-[#002fa7] text-white hover:bg-[#0026c4]" 
+                : "bg-[#8b91a5] text-white cursor-not-allowed"
+            }`}
+            title={!canCreateEvent ? "You don't have permission to create events" : ""}
+          >
+            <Plus size={20} />
+            Add Event
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -175,7 +388,12 @@ export default function AdminEvents() {
 
       {/* Events Table - Desktop */}
       <div className="hidden md:block bg-white rounded-lg border border-[#e3e6ee] overflow-hidden">
-        {filteredEvents.length === 0 ? (
+        {loading ? (
+          <div className="p-12 text-center">
+            <RefreshCw size={32} className="text-[#002fa7] animate-spin mx-auto mb-4" />
+            <p className="text-[14px] text-[#5a6073]">Loading events...</p>
+          </div>
+        ) : filteredEvents.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar size={32} className="text-[#8b91a5]" />
@@ -215,7 +433,9 @@ export default function AdminEvents() {
                     {event.category}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-[13px] text-[#5a6073]">{event.date}</td>
+                <td className="px-6 py-4 text-[13px] text-[#5a6073]">
+                  {event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                </td>
                 <td className="px-6 py-4 text-[13px] text-[#5a6073]">{event.location}</td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 text-[11px] font-bold uppercase rounded ${
@@ -233,14 +453,24 @@ export default function AdminEvents() {
                     >
                       <Eye size={18} />
                     </button>
-                    <button 
-                      onClick={() => handleEdit(event)}
-                      className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    {event.status === "active" && (
+                    {canEditEvent(event) ? (
+                      <button 
+                        onClick={() => handleEdit(event)}
+                        className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to edit this event"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
+                    {event.status === "active" && canEditEvent(event) && (
                       <button
                         onClick={() => handleExpire(event)}
                         className="p-2 text-[#ea580c] hover:bg-[#ea580c]/10 rounded transition-colors"
@@ -249,7 +479,7 @@ export default function AdminEvents() {
                         <Clock size={18} />
                       </button>
                     )}
-                    {event.status === "expired" && (
+                    {event.status === "expired" && canEditEvent(event) && (
                       <button
                         onClick={() => handleReactivate(event)}
                         className="p-2 text-[#047857] hover:bg-[#047857]/10 rounded transition-colors"
@@ -258,13 +488,23 @@ export default function AdminEvents() {
                         <RotateCcw size={18} />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(event)}
-                      className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {canDeleteEvent(event) ? (
+                      <button
+                        onClick={() => handleDelete(event)}
+                        className="p-2 text-[#dc2626] hover:bg-[#dc2626]/10 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="p-2 text-[#8b91a5] cursor-not-allowed"
+                        title="You don't have permission to delete this event"
+                        disabled
+                      >
+                        <Lock size={18} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -307,7 +547,7 @@ export default function AdminEvents() {
                 </span>
               </div>
               <div className="text-[13px] text-[#5a6073]">
-                <span className="font-semibold">Date:</span> {event.date}
+                <span className="font-semibold">Date:</span> {event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
               </div>
               <div className="text-[13px] text-[#5a6073]">
                 <span className="font-semibold">Location:</span> {event.location}
@@ -327,14 +567,25 @@ export default function AdminEvents() {
                 <Eye size={16} />
                 View
               </button>
-              <button 
-                onClick={() => handleEdit(event)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
-              >
-                <Edit size={16} />
-                Edit
-              </button>
-              {event.status === "active" && (
+              {canEditEvent(event) ? (
+                <button 
+                  onClick={() => handleEdit(event)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
+                >
+                  <Edit size={16} />
+                  Edit
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to edit this event"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Edit
+                </button>
+              )}
+              {event.status === "active" && canEditEvent(event) && (
                 <button
                   onClick={() => handleExpire(event)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#ea580c] border border-[#ea580c] rounded hover:bg-[#ea580c] hover:text-white transition-colors"
@@ -343,7 +594,7 @@ export default function AdminEvents() {
                   Expire
                 </button>
               )}
-              {event.status === "expired" && (
+              {event.status === "expired" && canEditEvent(event) && (
                 <button
                   onClick={() => handleReactivate(event)}
                   className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#047857] border border-[#047857] rounded hover:bg-[#047857] hover:text-white transition-colors"
@@ -352,13 +603,24 @@ export default function AdminEvents() {
                   Reactivate
                 </button>
               )}
-              <button
-                onClick={() => handleDelete(event)}
-                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
+              {canDeleteEvent(event) ? (
+                <button
+                  onClick={() => handleDelete(event)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#dc2626] hover:text-white transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              ) : (
+                <button 
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#8b91a5] border border-[#8b91a5] rounded cursor-not-allowed"
+                  title="You don't have permission to delete this event"
+                  disabled
+                >
+                  <Lock size={16} />
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         )))
@@ -388,17 +650,55 @@ export default function AdminEvents() {
             <h3 className="text-[20px] font-bold text-[#0b1020] mb-4">{selectedEvent?.title}</h3>
             <div className="space-y-3 text-[14px]">
               <div><span className="font-semibold">Category:</span> {selectedEvent?.category}</div>
-              <div><span className="font-semibold">Date:</span> {selectedEvent?.date}</div>
+              <div><span className="font-semibold">Date:</span> {selectedEvent?.date ? new Date(selectedEvent.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</div>
               <div><span className="font-semibold">Location:</span> {selectedEvent?.location}</div>
               <div><span className="font-semibold">Price:</span> {selectedEvent?.price}</div>
+              {selectedEvent?.registrationLink && (
+                <div>
+                  <span className="font-semibold">Registration:</span>{" "}
+                  <a href={selectedEvent?.registrationLink} target="_blank" rel="noopener noreferrer" className="text-[#002fa7] hover:underline">
+                    {selectedEvent?.registrationLink}
+                  </a>
+                </div>
+              )}
               {selectedEvent?.description && (
-                <div><span className="font-semibold">Description:</span> {selectedEvent?.description}</div>
+                <div><span className="font-semibold">Description:</span> <div className="mt-1 whitespace-pre-line">{selectedEvent?.description}</div></div>
               )}
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6">
             <div className="space-y-4">
+              {/* Image Upload */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Event Image (Optional)</label>
+                <div className="border-2 border-dashed border-[#e3e6ee] rounded-lg p-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded" />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center cursor-pointer py-8">
+                      <Upload size={32} className="text-[#8b91a5] mb-2" />
+                      <span className="text-[13px] text-[#5a6073] mb-1">Click to upload event image</span>
+                      <span className="text-[11px] text-[#8b91a5]">PNG, JPG up to 5MB</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
               <div>
                 <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Title</label>
                 <input
@@ -422,15 +722,16 @@ export default function AdminEvents() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Date</label>
+                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Event Date *</label>
                 <input
-                  type="text"
+                  type="date"
                   value={formData.date || ""}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
                   className="w-full px-4 py-3 border border-[#e3e6ee] rounded text-[14px] focus:outline-none focus:border-[#002fa7]"
-                  placeholder="e.g., March 15, 2024"
                   required
                 />
+                <p className="text-[11px] text-[#8b91a5] mt-1">Event date cannot be in the past</p>
               </div>
               <div>
                 <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Location</label>
@@ -454,12 +755,25 @@ export default function AdminEvents() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Description</label>
+                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Description *</label>
                 <textarea
                   value={formData.description || ""}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-3 border border-[#e3e6ee] rounded text-[14px] focus:outline-none focus:border-[#002fa7]"
                   rows="4"
+                  placeholder="Provide event details, agenda, speakers, etc."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] font-semibold text-[#2c3348] mb-2">Registration Link *</label>
+                <input
+                  type="url"
+                  value={formData.registrationLink || ""}
+                  onChange={(e) => setFormData({ ...formData, registrationLink: e.target.value })}
+                  className="w-full px-4 py-3 border border-[#e3e6ee] rounded text-[14px] focus:outline-none focus:border-[#002fa7]"
+                  placeholder="https://example.com/register"
+                  required
                 />
               </div>
             </div>
@@ -473,9 +787,17 @@ export default function AdminEvents() {
               </button>
               <button
                 type="submit"
-                className="px-6 py-3 text-[14px] font-semibold text-white bg-[#002fa7] rounded hover:bg-[#0026c4] transition-colors"
+                disabled={uploading}
+                className="px-6 py-3 text-[14px] font-semibold text-white bg-[#002fa7] rounded hover:bg-[#0026c4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {modalMode === "add" ? "Add Event" : "Save Changes"}
+                {uploading ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  modalMode === "add" ? "Add Event" : "Save Changes"
+                )}
               </button>
             </div>
           </form>

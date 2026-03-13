@@ -1,13 +1,123 @@
 import { useParams, Link } from "react-router-dom";
-import { newsArticles, categories } from "../constants/news";
-import { regionalStories } from "../constants/regionalNews";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { where } from "firebase/firestore";
+import { categories } from "../constants/news";
+import { COLLECTIONS, getById, queryDocuments } from "../services/firebase/firestore";
 import OpportunitiesCTA from "../components/OpportunitiesCTA";
+import { useSEO } from "../hooks/useSEO";
+import { generateArticleStructuredData, extractKeywords } from "../utils/seo";
+import { useContentTracking } from "../hooks/useAnalytics";
 
 export default function ArticleDetailsPage() {
   const { id } = useParams();
-  const article = newsArticles.find((a) => a.id === parseInt(id)) || regionalStories.find((s) => s.id === parseInt(id));
+  const [article, setArticle] = useState(null);
+  const [relatedArticles, setRelatedArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const { trackArticle } = useContentTracking();
+
+  useEffect(() => {
+    if (!id) return;
+    fetchArticle();
+  }, [id]);
+
+  // Track article view when article is loaded
+  useEffect(() => {
+    if (article) {
+      trackArticle(article.id, article.category, article.title);
+    }
+  }, [article, trackArticle]);
+
+  const fetchArticle = async () => {
+    try {
+      setLoading(true);
+      const data = await getById(COLLECTIONS.ARTICLES, id);
+      setArticle(data);
+      if (data?.category) {
+        const related = await queryDocuments(COLLECTIONS.ARTICLES, [
+          where("status", "==", "active"),
+          where("category", "==", data.category),
+        ]);
+        setRelatedArticles(related.filter((item) => item.id !== data.id).slice(0, 3));
+      } else {
+        setRelatedArticles([]);
+      }
+    } catch (error) {
+      console.error("Error fetching article:", error);
+      setArticle(null);
+      setRelatedArticles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formattedDate = useMemo(() => {
+    if (!article?.createdAt) return "Recently";
+    if (typeof article.createdAt === "string") return article.createdAt;
+    if (article.createdAt?.seconds) {
+      return new Date(article.createdAt.seconds * 1000).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    if (typeof article.createdAt?.toDate === "function") {
+      return article.createdAt.toDate().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    return "Recently";
+  }, [article]);
+
+  const heroImage = article?.imageUrl || article?.image || "";
+  const contentParagraphs = useMemo(() => {
+    if (!article?.content) return [];
+    return article.content
+      .split(/\n\s*\n/)
+      .map((text) => text.trim())
+      .filter(Boolean);
+  }, [article]);
+
+  const categoryColor = categories.find((cat) => cat.name === article?.category)?.color || "#002fa7";
+
+  // SEO Implementation
+  const seoData = useMemo(() => {
+    if (!article) return null;
+    
+    const description = article.excerpt || (article.content ? article.content.substring(0, 160) + '...' : 'Read the latest news and updates from Apple Fam TV.');
+    const keywords = extractKeywords(article.content || article.title, article.category);
+    const image = article.imageUrl || article.image || 'https://applefamtv.com/assets/apple-tv-logo.png';
+    
+    return {
+      title: article.title,
+      description,
+      keywords,
+      image,
+      structuredData: generateArticleStructuredData(article)
+    };
+  }, [article]);
+
+  useSEO({
+    title: seoData?.title,
+    description: seoData?.description,
+    keywords: seoData?.keywords,
+    image: seoData?.image,
+    structuredData: seoData?.structuredData,
+    type: 'article'
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[14px] text-[#5a6073]">Loading article...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!article) {
     return (
@@ -19,9 +129,6 @@ export default function ArticleDetailsPage() {
       </div>
     );
   }
-
-  const categoryColor = categories.find((cat) => cat.name === article.category)?.color || "#002fa7";
-  const relatedArticles = newsArticles.filter((a) => a.category === article.category && a.id !== article.id).slice(0, 3);
 
   const currentUrl = window.location.href;
   const shareText = `Check out this article: ${article.title}`;
@@ -51,7 +158,16 @@ export default function ArticleDetailsPage() {
     <div className="bg-white">
       {/* Hero Section */}
       <div className="relative h-[60vh] md:h-[70vh] bg-black">
-        <img src={article.image} alt={article.title} className="w-full h-full object-cover opacity-80" />
+        {heroImage ? (
+          <img
+            src={heroImage}
+            alt={article.title}
+            className={`w-full h-full object-cover opacity-80 ${article.isSensitive ? "blur-xl" : ""}`}
+            loading="eager"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#0b1020] to-[#2c3348]" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 max-w-[900px] mx-auto px-6 pb-12">
           <span className="inline-block px-3 py-1 text-white text-[10px] font-bold tracking-[0.1em] uppercase rounded mb-4" style={{ backgroundColor: categoryColor }}>
@@ -63,71 +179,86 @@ export default function ArticleDetailsPage() {
           <div className="flex items-center gap-4 text-white/80 text-[14px]">
             <span className="font-medium text-white">{article.author}</span>
             <span>•</span>
-            <span>{article.timestamp}</span>
+            <span>{formattedDate}</span>
           </div>
         </div>
       </div>
 
       {/* Article Content */}
       <article className="max-w-[900px] mx-auto px-6 py-12">
-        <p className="text-[20px] md:text-[24px] font-medium text-[#2c3348] leading-[1.6] mb-8">
-          {article.excerpt}
-        </p>
+        <header>
+          <p className="text-[20px] md:text-[24px] font-medium text-[#2c3348] leading-[1.6] mb-8">
+            {article.excerpt}
+          </p>
+        </header>
 
         <div className="prose prose-lg max-w-none">
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-          </p>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-          </p>
+          {contentParagraphs.length > 0 ? (
+            contentParagraphs.map((paragraph, index) => (
+              <p key={`${article.id}-p-${index}`} className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
+                {paragraph}
+              </p>
+            ))
+          ) : (
+            <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
+              Full story coming soon. Stay tuned for updates as we expand our coverage.
+            </p>
+          )}
 
-          {/* Video Section - Mobile */}
-          <div className="my-8 md:hidden">
-            <div className="relative w-full" style={{ paddingBottom: "177.78%" }}>
-              <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center text-white">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    <p className="text-sm">Video Player</p>
+          {/* Video Section - Only show if videoUrl exists */}
+          {article.videoUrl && (
+            <>
+              {/* Video Section - Mobile */}
+              <div className="my-8 md:hidden">
+                <div className="relative w-full" style={{ paddingBottom: "177.78%" }}>
+                  <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
+                    {article.videoUrl.includes('youtube.com') || article.videoUrl.includes('youtu.be') ? (
+                      <iframe
+                        src={article.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allowFullScreen
+                        title={article.title}
+                      />
+                    ) : (
+                      <video
+                        src={article.videoUrl}
+                        className="w-full h-full object-cover"
+                        controls
+                        poster={heroImage}
+                      />
+                    )}
                   </div>
                 </div>
+                <p className="text-[13px] text-[#8b91a5] mt-2 italic">Video: {article.title}</p>
               </div>
-            </div>
-            <p className="text-[13px] text-[#8b91a5] mt-2 italic">Video: {article.title}</p>
-          </div>
 
-          {/* Video Section - Desktop/Tablet */}
-          <div className="my-8 hidden md:block">
-            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-              <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center text-white">
-                  <div className="text-center">
-                    <svg className="w-20 h-20 mx-auto mb-3" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    <p className="text-lg">Video Player</p>
+              {/* Video Section - Desktop/Tablet */}
+              <div className="my-8 hidden md:block">
+                <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                  <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
+                    {article.videoUrl.includes('youtube.com') || article.videoUrl.includes('youtu.be') ? (
+                      <iframe
+                        src={article.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allowFullScreen
+                        title={article.title}
+                      />
+                    ) : (
+                      <video
+                        src={article.videoUrl}
+                        className="w-full h-full object-cover"
+                        controls
+                        poster={heroImage}
+                      />
+                    )}
                   </div>
                 </div>
+                <p className="text-[14px] text-[#8b91a5] mt-3 italic">Video: {article.title}</p>
               </div>
-            </div>
-            <p className="text-[14px] text-[#8b91a5] mt-3 italic">Video: {article.title}</p>
-          </div>
-
-          <h2 className="text-[28px] font-playfair font-black text-[#0b1020] mt-10 mb-4">Key Developments</h2>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
-          </p>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.
-          </p>
-
-          <h2 className="text-[28px] font-playfair font-black text-[#0b1020] mt-10 mb-4">Looking Ahead</h2>
-          <p className="text-[17px] text-[#5a6073] leading-[1.8] mb-6">
-            Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.
-          </p>
+            </>
+          )}
         </div>
 
         {/* Share Section */}
@@ -191,7 +322,16 @@ export default function ArticleDetailsPage() {
                 <Link key={related.id} to={`/article/${related.id}`} className="group">
                   <div className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="relative h-48 overflow-hidden">
-                      <img src={related.image} alt={related.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      {(related.imageUrl || related.image) ? (
+                        <img
+                          src={related.imageUrl || related.image}
+                          alt={related.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#0b1020] to-[#2c3348]" />
+                      )}
                     </div>
                     <div className="p-5">
                       <span className="inline-block px-2 py-1 text-white text-[9px] font-bold tracking-[0.1em] uppercase rounded mb-3" style={{ backgroundColor: categoryColor }}>

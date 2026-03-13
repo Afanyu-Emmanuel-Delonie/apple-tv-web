@@ -1,12 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { opportunityCategories, opportunities } from "../constants/opportunities";
+import { RefreshCw } from "lucide-react";
+import { getAll, COLLECTIONS } from "../services/firebase/firestore";
+import { opportunityCategories } from "../constants/opportunities";
 import OpportunitiesCTA from "../components/OpportunitiesCTA";
+import { formatOpportunityTitle, formatExcerpt, formatCompanyName, formatLocation } from "../utils/textUtils";
 
 export default function Opportunities() {
+  const [opportunities, setOpportunities] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All Opportunities");
   const [currentPage, setCurrentPage] = useState(1);
   const opportunitiesPerPage = 6;
+
+  useEffect(() => {
+    fetchOpportunities();
+  }, []);
+
+  const fetchOpportunities = async () => {
+    try {
+      setLoading(true);
+      const data = await getAll(COLLECTIONS.OPPORTUNITIES);
+      // Filter only active opportunities for public view
+      const activeOpportunities = data.filter(opp => opp.status === "active");
+      setOpportunities(activeOpportunities);
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredOpportunities = selectedCategory === "All Opportunities"
     ? opportunities
@@ -52,29 +75,39 @@ export default function Opportunities() {
             <h2 className="text-[24px] sm:text-[32px] font-playfair font-black text-[#0b1020]">Featured Opportunities</h2>
             <span className="text-[12px] font-semibold tracking-[0.12em] uppercase text-[#8b91a5]">Hot Picks</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            {opportunities.slice(0, 3).map((opportunity) => {
-              const categoryColor = opportunityCategories.find(c => c.name === opportunity.category)?.color || "#047857";
-              return (
-                <div key={opportunity.id} className="group cursor-pointer">
-                  <div className="relative h-48 sm:h-64 rounded-lg overflow-hidden mb-4">
-                    <img src={opportunity.image} alt={opportunity.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute top-3 sm:top-4 left-3 sm:left-4">
-                      <span className="inline-block px-2 sm:px-3 py-1 text-white text-[9px] sm:text-[10px] font-bold tracking-[0.1em] uppercase rounded" style={{ backgroundColor: categoryColor }}>
-                        {opportunity.category}
-                      </span>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw size={32} className="text-[#002fa7] animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              {opportunities.slice(0, 3).map((opportunity) => {
+                const categoryColor = opportunityCategories.find(c => c.name === opportunity.category)?.color || "#047857";
+                return (
+                  <Link key={opportunity.id} to={`/opportunity/${opportunity.id}`} className="group cursor-pointer">
+                    <div className="relative h-48 sm:h-64 rounded-lg overflow-hidden mb-4">
+                      {opportunity.imageUrl ? (
+                        <img src={opportunity.imageUrl} alt={opportunity.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#002fa7] to-[#0066cc]" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute top-3 sm:top-4 left-3 sm:left-4">
+                        <span className="inline-block px-2 sm:px-3 py-1 text-white text-[9px] sm:text-[10px] font-bold tracking-[0.1em] uppercase rounded" style={{ backgroundColor: categoryColor }}>
+                          {opportunity.category}
+                        </span>
+                      </div>
+                      <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
+                        <h3 className="text-[16px] sm:text-[20px] font-playfair font-black text-white leading-[1.2] group-hover:text-[#ffd700] transition-colors">
+                          {formatOpportunityTitle(opportunity.title)}
+                        </h3>
+                      </div>
                     </div>
-                    <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
-                      <h3 className="text-[16px] sm:text-[20px] font-playfair font-black text-white leading-[1.2] group-hover:text-[#ffd700] transition-colors">
-                        {opportunity.title}
-                      </h3>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Category Filter */}
@@ -102,48 +135,67 @@ export default function Opportunities() {
         </div>
 
         {/* Opportunities Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          {currentOpportunities.map((opportunity) => {
-            const categoryColor = opportunityCategories.find(c => c.name === opportunity.category)?.color || "#047857";
-            return (
-              <article key={opportunity.id} className="bg-white rounded-lg overflow-hidden border border-[#e3e6ee] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 group h-full">
-                <div className="relative h-40 sm:h-48 overflow-hidden">
-                  <img src={opportunity.image} alt={opportunity.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                    <span className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-bold tracking-[0.1em] uppercase text-white rounded" style={{ backgroundColor: categoryColor }}>
-                      {opportunity.category}
-                    </span>
-                    <span className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-bold tracking-[0.1em] uppercase text-white rounded bg-[#0b1020]">
-                      {opportunity.type}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] sm:text-[11px] font-medium text-[#8b91a5] truncate">
-                      {opportunity.company}
-                    </span>
-                  </div>
-                  <h3 className="text-[16px] sm:text-[18px] font-playfair font-bold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors line-clamp-2">
-                    {opportunity.title}
-                  </h3>
-                  <p className="text-[13px] sm:text-[14px] text-[#2c3348]/70 leading-[1.6] mb-3 line-clamp-2">
-                    {opportunity.excerpt}
-                  </p>
-                  <div className="space-y-2 pt-3 border-t border-[#e3e6ee]">
-                    <div className="flex items-center justify-between text-[11px] sm:text-[12px] gap-2">
-                      <span className="text-[#8b91a5] truncate flex-1">{opportunity.location}</span>
-                      <span className="font-bold text-[#002fa7] whitespace-nowrap">{opportunity.salary}</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw size={32} className="text-[#002fa7] animate-spin" />
+          </div>
+        ) : currentOpportunities.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-20 h-20 bg-[#f6f7fb] rounded-full flex items-center justify-center mx-auto mb-4">
+              <RefreshCw size={40} className="text-[#8b91a5]" />
+            </div>
+            <h3 className="text-[18px] font-bold text-[#0b1020] mb-2">No Opportunities Found</h3>
+            <p className="text-[14px] text-[#5a6073]">Check back later for new opportunities.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+            {currentOpportunities.map((opportunity) => {
+              const categoryColor = opportunityCategories.find(c => c.name === opportunity.category)?.color || "#047857";
+              return (
+                <Link key={opportunity.id} to={`/opportunity/${opportunity.id}`}>
+                  <article className="bg-white rounded-lg overflow-hidden border border-[#e3e6ee] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 group h-full">
+                    <div className="relative h-40 sm:h-48 overflow-hidden">
+                      {opportunity.imageUrl ? (
+                        <img src={opportunity.imageUrl} alt={opportunity.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#002fa7] to-[#0066cc]" />
+                      )}
+                      <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                        <span className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-bold tracking-[0.1em] uppercase text-white rounded" style={{ backgroundColor: categoryColor }}>
+                          {opportunity.category}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] sm:text-[12px]">
-                      <span className="text-[#8b91a5] truncate">Deadline: {opportunity.deadline}</span>
+                    <div className="p-4 sm:p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[10px] sm:text-[11px] font-medium text-[#8b91a5] truncate">
+                          {formatCompanyName(opportunity.company)}
+                        </span>
+                      </div>
+                      <h3 className="text-[16px] sm:text-[18px] font-playfair font-bold text-[#0b1020] leading-[1.3] mb-2 group-hover:text-[#002fa7] transition-colors line-clamp-2">
+                        {formatOpportunityTitle(opportunity.title)}
+                      </h3>
+                      <p className="text-[13px] sm:text-[14px] text-[#2c3348]/70 leading-[1.6] mb-3 line-clamp-2">
+                        {formatExcerpt(opportunity.description, 'card')}
+                      </p>
+                      <div className="space-y-2 pt-3 border-t border-[#e3e6ee]">
+                        <div className="flex items-center justify-between text-[11px] sm:text-[12px] gap-2">
+                          <span className="text-[#8b91a5] truncate flex-1">{formatLocation(opportunity.location)}</span>
+                          <span className="font-bold text-[#002fa7] whitespace-nowrap">{opportunity.salary}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] sm:text-[12px]">
+                          <span className="text-[#8b91a5] truncate">
+                            Deadline: {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                  </article>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -224,8 +276,8 @@ export default function Opportunities() {
       {/* CTA */}
       <OpportunitiesCTA
         eyebrow="Stay Ahead"
-        headline="Get Notified About New "
-        highlightText="Opportunities"
+        headline="Get Notified "
+        highlightText="New "
         description="Receive instant alerts about jobs, internships, fellowships, and grants that match your profile. Never miss your dream opportunity."
         primaryButtonText="Subscribe to Alerts"
         accentColor="#002fa7"

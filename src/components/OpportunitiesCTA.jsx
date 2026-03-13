@@ -155,6 +155,7 @@ export default function OpportunitiesCTA({
                   fontFamily: "'DM Sans', sans-serif",
                   backgroundColor: accentColor,
                 }}
+                onClick={() => window.open('https://chat.whatsapp.com/CTBRFODXBbhH9bdLNSdZCo?mode=gi_t', '_blank')}
                 onMouseEnter={(e) => {
                   const rgb = accentColor.match(/\w\w/g).map(x => parseInt(x, 16));
                   const darker = rgb.map(c => Math.max(0, c - 30));

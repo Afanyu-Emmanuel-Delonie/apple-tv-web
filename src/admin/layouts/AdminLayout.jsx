@@ -1,13 +1,54 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, Settings, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
+import { LayoutDashboard, FileText, Inbox, Calendar, Briefcase, Users, User, LogOut, Menu, ExternalLink, Bell } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getAll, COLLECTIONS } from "../../services/firebase/firestore";
+import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
+import OpportunityExpirationJob from "../../components/OpportunityExpirationJob";
+import EventExpirationJob from "../../components/EventExpirationJob";
 
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Load notifications from Firebase
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true);
+        const data = await getAll(COLLECTIONS.NOTIFICATIONS);
+        // Sort by creation date (newest first) and take only the latest 5
+        const sortedData = data
+          .sort((a, b) => {
+            if (a.createdAt && b.createdAt) {
+              return b.createdAt.seconds - a.createdAt.seconds;
+            }
+            return 0;
+          })
+          .slice(0, 5);
+        setNotifications(sortedData);
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+
+    loadNotifications();
+    
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -21,50 +62,107 @@ export default function AdminLayout() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  const notifications = [
-    {
-      id: 1,
-      type: "submission",
-      title: "New Story Submission",
-      message: "John Doe submitted a new story for review",
-      time: "5 minutes ago",
-      unread: true,
-      link: "/admin/submissions"
-    },
-    {
-      id: 2,
-      type: "user",
-      title: "New User Registration",
-      message: "Sarah Smith registered as an Author",
-      time: "1 hour ago",
-      unread: true,
-      link: "/admin/users"
-    },
-    {
-      id: 3,
-      type: "event",
-      title: "Event Expiring Soon",
-      message: "Tech Summit 2024 will expire in 3 days",
-      time: "2 hours ago",
-      unread: false,
-      link: "/admin/events"
-    },
-    {
-      id: 4,
-      type: "opportunity",
-      title: "Opportunity Deadline",
-      message: "Software Engineer position deadline is tomorrow",
-      time: "5 hours ago",
-      unread: false,
-      link: "/admin/opportunities"
-    },
-  ];
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const getFormattedTime = (notification) => {
+    if (notification.createdAt && notification.createdAt.seconds) {
+      const date = new Date(notification.createdAt.seconds * 1000);
+      const now = new Date();
+      const diffInHours = (now - date) / (1000 * 60 * 60);
+      
+      if (diffInHours < 1) {
+        const minutes = Math.floor(diffInHours * 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInHours < 24) {
+        const hours = Math.floor(diffInHours);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(diffInHours / 24);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      }
+    }
+    return 'Recently';
+  };
+
+  const getNotificationLink = (notification) => {
+    // For content creation/modification notifications
+    if (['article', 'event', 'opportunity'].includes(notification.type)) {
+      switch (notification.type) {
+        case "article":
+          return "/admin/articles";
+        case "event":
+          return "/admin/events";
+        case "opportunity":
+          return "/admin/opportunities";
+        default:
+          return "/admin/dashboard";
+      }
+    }
+    
+    // For approved content notifications
+    if (notification.type === "content_approved" && notification.metadata?.routedTo) {
+      const { collection } = notification.metadata.routedTo;
+      switch (collection) {
+        case "articles":
+          return "/admin/articles";
+        case "events":
+          return "/admin/events";
+        case "opportunities":
+          return "/admin/opportunities";
+        default:
+          return "/admin/dashboard";
+      }
+    }
+    
+    // For submission notifications
+    if (notification.type === "submission") {
+      return "/admin/submissions";
+    }
+    
+    return "/admin/notifications";
+  };
+
+  const handleLogout = async () => {
+    console.log('handleLogout called');
+    try {
+      console.log('Calling logout function...');
+      await logout();
+      console.log('Logout successful');
+      showToast('Logged out successfully!', 'success');
+      setTimeout(() => navigate("/admin/login"), 1000);
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('Error logging out. Please try again.', 'error');
+    }
+    setShowLogoutDialog(false);
+  };
+
+  const getUserInitials = () => {
+    if (user?.displayName) {
+      return user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.name) {
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  const getUserDisplayName = () => {
+    return user?.displayName || user?.name || user?.email || 'User';
+  };
+
+  const unreadCount = notifications.filter(n => n.status === "unread").length;
 
   const handleNotificationClick = (notification) => {
     setNotificationsOpen(false);
-    navigate(notification.link);
+    const link = getNotificationLink(notification);
+    navigate(link);
   };
 
   const handleViewAll = () => {
@@ -78,19 +176,26 @@ export default function AdminLayout() {
     { label: "Submissions", path: "/admin/submissions", icon: Inbox },
     { label: "Events", path: "/admin/events", icon: Calendar },
     { label: "Opportunities", path: "/admin/opportunities", icon: Briefcase },
-    { label: "Users", path: "/admin/users", icon: Users },
-    { label: "Settings", path: "/admin/settings", icon: Settings },
+    { label: "Users", path: "/admin/users", icon: Users, roles: ['admin', 'editor'] },
+    { label: "Profile", path: "/admin/profile", icon: User },
   ];
 
-  const handleLogout = () => {
-    // TODO: Implement actual logout logic
-    navigate("/admin/login");
-  };
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.roles) {
+      return item.roles.includes(user?.role);
+    }
+    return true;
+  });
 
   const isActive = (path) => location.pathname === path;
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] flex">
+      {/* Background Jobs for Auto-Expiration */}
+      <OpportunityExpirationJob />
+      <EventExpirationJob />
+      
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -130,7 +235,7 @@ export default function AdminLayout() {
 
           {/* Navigation */}
           <nav className="flex-1 py-6 px-3 overflow-y-auto">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -159,7 +264,10 @@ export default function AdminLayout() {
           {/* Footer */}
           <div className="border-t border-[#e3e6ee] p-4">
             <button
-              onClick={handleLogout}
+              onClick={() => {
+                console.log('Logout button clicked');
+                setShowLogoutDialog(true);
+              }}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium text-[#dc2626] hover:bg-[#dc2626]/10 transition-all"
               title={!sidebarOpen ? "Logout" : ""}
             >
@@ -222,32 +330,44 @@ export default function AdminLayout() {
 
                     {/* Notifications List */}
                     <div className="max-h-[400px] overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`px-4 py-3 border-b border-[#e3e6ee] hover:bg-[#f6f7fb] transition-colors cursor-pointer ${
-                            notification.unread ? "bg-[#002fa7]/5" : ""
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                              notification.unread ? "bg-[#002fa7]" : "bg-transparent"
-                            }`} />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-semibold text-[#0b1020] mb-1">
-                                {notification.title}
-                              </h4>
-                              <p className="text-[12px] text-[#5a6073] mb-1">
-                                {notification.message}
-                              </p>
-                              <span className="text-[11px] text-[#8b91a5]">
-                                {notification.time}
-                              </span>
+                      {loadingNotifications ? (
+                        <div className="px-4 py-8 text-center">
+                          <div className="inline-block w-4 h-4 border-2 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-2" />
+                          <p className="text-[12px] text-[#5a6073]">Loading notifications...</p>
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                          <Bell size={24} className="mx-auto text-[#8b91a5] mb-2" />
+                          <p className="text-[12px] text-[#5a6073]">No notifications yet</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`px-4 py-3 border-b border-[#e3e6ee] hover:bg-[#f6f7fb] transition-colors cursor-pointer ${
+                              notification.status === "unread" ? "bg-[#002fa7]/5" : ""
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                notification.status === "unread" ? "bg-[#002fa7]" : "bg-transparent"
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-[13px] font-semibold text-[#0b1020] mb-1">
+                                  {notification.title}
+                                </h4>
+                                <p className="text-[12px] text-[#5a6073] mb-1 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                                <span className="text-[11px] text-[#8b91a5]">
+                                  {getFormattedTime(notification)}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
 
                     {/* Footer */}
@@ -272,8 +392,8 @@ export default function AdminLayout() {
               <ExternalLink size={16} />
               <span className="hidden md:inline">View Site</span>
             </Link>
-            <div className="w-10 h-10 bg-[#002fa7] rounded-full flex items-center justify-center text-white font-bold text-[14px]">
-              A
+            <div className="w-10 h-10 bg-[#002fa7] rounded-full flex items-center justify-center text-white font-bold text-[14px]" title={getUserDisplayName()}>
+              {getUserInitials()}
             </div>
           </div>
         </header>
@@ -283,6 +403,29 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && (
+        <ConfirmDialog
+          isOpen={showLogoutDialog}
+          title="Confirm Logout"
+          message="Are you sure you want to logout? You will need to sign in again to access the admin panel."
+          confirmText="Logout"
+          cancelText="Cancel"
+          onConfirm={handleLogout}
+          onClose={() => setShowLogoutDialog(false)}
+          type="danger"
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

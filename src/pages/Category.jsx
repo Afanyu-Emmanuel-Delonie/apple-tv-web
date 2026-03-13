@@ -1,47 +1,79 @@
 import { useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import NoContent from '../components/NoContent'
-import { newsArticles, categories } from '../constants/news'
+import { categories } from '../constants/news'
 import { Link } from 'react-router-dom'
 import OpportunitiesCTA from '../components/OpportunitiesCTA'
-
-const prettyName = (value) =>
-  value
-    ?.split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+import { getAll, COLLECTIONS } from '../services/firebase/firestore'
+import { slugToCategory, categoryToSlug } from '../utils/categoryUtils'
 
 export default function Category() {
   const { slug } = useParams()
-  const categoryName = prettyName(slug)
+  const categoryName = slugToCategory(slug)
   const [currentPage, setCurrentPage] = useState(1)
+  const [articles, setArticles] = useState([])
+  const [loading, setLoading] = useState(true)
   const articlesPerPage = 6
   
-  // Filter articles by category
-  const categoryArticles = newsArticles.filter(
-    article => article.category.toLowerCase() === categoryName.toLowerCase()
-  )
+  useEffect(() => {
+    fetchArticles()
+  }, [categoryName])
+
+  const fetchArticles = async () => {
+    try {
+      setLoading(true)
+      const data = await getAll(COLLECTIONS.ARTICLES)
+      const categoryArticles = data.filter(
+        article => 
+          article.status === 'active' && 
+          article.category.toLowerCase() === categoryName.toLowerCase()
+      )
+      setArticles(categoryArticles)
+    } catch (error) {
+      console.error('Error fetching articles:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getGradientBackground = (title) => {
+    const gradients = [
+      'linear-gradient(135deg, #002fa7 0%, #001f73 100%)',
+      'linear-gradient(135deg, #1e40af 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #3b82f6 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #2563eb 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #1d4ed8 0%, #002fa7 100%)',
+      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    ]
+    const index = title.charCodeAt(0) % gradients.length
+    return gradients[index]
+  }
   
   const categoryColor = categories.find(
     cat => cat.name.toLowerCase() === categoryName.toLowerCase()
   )?.color || '#002fa7'
 
   // Pagination
-  const totalPages = Math.ceil(categoryArticles.length / articlesPerPage)
+  const totalPages = Math.ceil(articles.length / articlesPerPage)
   const startIndex = (currentPage - 1) * articlesPerPage
   const endIndex = startIndex + articlesPerPage
-  const currentArticles = categoryArticles.slice(startIndex, endIndex)
+  const currentArticles = articles.slice(startIndex, endIndex)
 
-  // Category stats
-  const categoryStats = [
-    { label: "Total Stories", value: `${categoryArticles.length}` },
-    { label: "This Week", value: "5+" },
-    { label: "Contributors", value: "8" },
-    { label: "Categories", value: "5" },
-  ]
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-[#002fa7] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[14px] text-[#5a6073]">Loading {categoryName} articles...</p>
+        </div>
+      </div>
+    )
+  }
 
   // If no articles, show NoContent component
-  if (categoryArticles.length === 0) {
+  if (articles.length === 0) {
     return (
       <NoContent
         category={categoryName}
@@ -89,14 +121,27 @@ export default function Category() {
             <span className="text-[12px] font-semibold tracking-[0.12em] uppercase text-[#8b91a5]">Featured</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {categoryArticles.slice(0, 3).map((article) => (
-              <Link to={`/article/${article.id}`} key={article.id} className="group">
+            {articles.slice(0, 3).map((article) => (
+              <Link to={`/article/${article.id}`} key={article.id} className="group no-underline">
                 <div className="relative h-64 rounded-lg overflow-hidden mb-4">
-                  <img
-                    src={article.image}
-                    alt={article.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+                  {article.imageUrl ? (
+                    <>
+                      <img
+                        src={article.imageUrl}
+                        alt={article.title}
+                        className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${article.isSensitive ? 'blur-lg' : ''}`}
+                      />
+                      {article.isSensitive && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full" style={{ background: getGradientBackground(article.title) }} />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   <div className="absolute top-4 left-4">
                     <span
@@ -120,21 +165,34 @@ export default function Category() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-[14px] text-[#2c3348]/60">
-            Showing <span className="font-semibold" style={{ color: categoryColor }}>{startIndex + 1}-{Math.min(endIndex, categoryArticles.length)}</span> of <span className="font-semibold" style={{ color: categoryColor }}>{categoryArticles.length}</span> {categoryArticles.length === 1 ? 'story' : 'stories'}
+            Showing <span className="font-semibold" style={{ color: categoryColor }}>{startIndex + 1}-{Math.min(endIndex, articles.length)}</span> of <span className="font-semibold" style={{ color: categoryColor }}>{articles.length}</span> {articles.length === 1 ? 'story' : 'stories'}
           </p>
         </div>
 
         {/* Articles Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {currentArticles.map((article) => (
-            <Link to={`/article/${article.id}`} key={article.id} className="group">
+            <Link to={`/article/${article.id}`} key={article.id} className="group no-underline">
               <article className="bg-white rounded-lg overflow-hidden border border-[#e3e6ee] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 h-full">
                 <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={article.image}
-                    alt={article.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  {article.imageUrl ? (
+                    <>
+                      <img
+                        src={article.imageUrl}
+                        alt={article.title}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${article.isSensitive ? 'blur-lg' : ''}`}
+                      />
+                      {article.isSensitive && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full" style={{ background: getGradientBackground(article.title) }} />
+                  )}
                   <div className="absolute top-3 left-3">
                     <span
                       className="px-3 py-1 text-[10px] font-bold tracking-[0.1em] uppercase text-white rounded"
@@ -148,7 +206,7 @@ export default function Category() {
                   <div className="flex items-center gap-2 mb-3 text-[11px] text-[#8b91a5]">
                     <span>{article.author}</span>
                     <span>•</span>
-                    <span>{article.timestamp}</span>
+                    <span>{article.createdAt ? new Date(article.createdAt.seconds * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently'}</span>
                   </div>
                   <h3
                     className="text-[18px] font-bold text-[#0b1020] leading-[1.3] mb-2 transition-colors"
@@ -222,21 +280,17 @@ export default function Category() {
           <p className="text-[15px] text-[#5a6073] text-center mb-8">Discover more stories across different topics</p>
           <div className="flex flex-wrap justify-center gap-3">
             {categories.filter(cat => cat.name !== 'Latest' && cat.name.toLowerCase() !== categoryName.toLowerCase()).map((category) => {
-              const categorySlug = category.name.toLowerCase().replace(/\s+/g, '-')
-              const categoryArticleCount = newsArticles.filter(a => a.category === category.name).length
+              const categorySlug = categoryToSlug(category.name)
               return (
                 <Link
                   key={category.name}
                   to={`/category/${categorySlug}`}
-                  className="group relative p-6 bg-gradient-to-br from-white to-[#f8f9fa] border-2 border-[#e3e6ee] rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
-                  style={{
-                    borderColor: '#e3e6ee',
-                  }}
+                  className="group relative p-6 bg-gradient-to-br from-white to-[#f8f9fa] border-2 border-[#e3e6ee] rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105 no-underline"
                 >
                   <div className="text-center">
                     <div className="text-[20px] font-black text-[#0b1020] mb-1">{category.name}</div>
                     <div className="text-[12px] font-semibold" style={{ color: category.color }}>
-                      {categoryArticleCount} {categoryArticleCount === 1 ? 'story' : 'stories'}
+                      View Stories
                     </div>
                   </div>
                 </Link>
