@@ -88,8 +88,8 @@ export default function AdminLayout() {
 
       {/* Sidebar - Fixed */}
       <aside className={`fixed top-0 left-0 h-screen bg-white shadow-[2px_0_20px_rgba(0,0,0,0.08)] transition-all duration-300 z-50 ${
-        sidebarOpen ? "w-64" : "w-20"
-      } lg:translate-x-0 -translate-x-full`}>
+        sidebarOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full lg:w-20 lg:translate-x-0"
+      }`}>
         <div className="h-full flex flex-col">
           {/* Logo */}
           <div className="h-16 border-b border-[#e3e6ee] flex items-center justify-center px-6">
@@ -153,13 +153,12 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${
-        sidebarOpen ? "ml-64" : "ml-20"
+        sidebarOpen ? "lg:ml-64" : "lg:ml-20"
       }`}>
         {/* Top Bar - Fixed */}
-        <header 
-          className="fixed top-0 right-0 h-16 bg-white border-b border-[#e3e6ee] flex items-center justify-between px-4 lg:px-8 z-40 transition-all duration-300"
-          style={{ left: sidebarOpen ? "256px" : "80px" }}
-        >
+        <header className={`fixed top-0 right-0 h-16 bg-white border-b border-[#e3e6ee] flex items-center justify-between px-4 lg:px-8 z-40 transition-all duration-300 left-0 ${
+          sidebarOpen ? "lg:left-64" : "lg:left-20"
+        }`}>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#f0f2f8] transition-colors"
