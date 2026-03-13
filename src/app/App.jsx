@@ -2,20 +2,60 @@ import { Routes, Route } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout.jsx'
 import Home from '../pages/Home.jsx'
 import Category from '../pages/Category.jsx'
+import RegionalNewsPage from '../pages/RegionalNewsPage.jsx'
+import ArticleDetailsPage from '../pages/ArticleDetailsPage.jsx'
+import EventDetailsPage from '../pages/EventDetailsPage.jsx'
 import Opportunities from '../pages/Opportunities.jsx'
 import Events from '../pages/Events.jsx'
+import AboutUs from '../pages/AboutUs.jsx'
+import SubmitStory from '../pages/SubmitStory.jsx'
 import NotFound from '../pages/NotFound.jsx'
+import ScrollToTop from '../components/ScrollToTop.jsx'
+
+// Admin imports
+import AdminLogin from '../admin/pages/AdminLogin.jsx'
+import AdminLayout from '../admin/layouts/AdminLayout.jsx'
+import AdminDashboard from '../admin/pages/AdminDashboard.jsx'
+import AdminArticles from '../admin/pages/AdminArticles.jsx'
+import AdminSubmissions from '../admin/pages/AdminSubmissions.jsx'
+import AdminEvents from '../admin/pages/AdminEvents.jsx'
+import AdminOpportunities from '../admin/pages/AdminOpportunities.jsx'
+import AdminUsers from '../admin/pages/AdminUsers.jsx'
+import AdminSettings from '../admin/pages/AdminSettings.jsx'
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<MainLayout />}>
-        <Route index element={<Home />} />
-        <Route path="category/:slug" element={<Category />} />
-        <Route path="opportunities" element={<Opportunities />} />
-        <Route path="events" element={<Events />} />
+    <>
+      <ScrollToTop />
+      <Routes>
+        {/* Public Routes */}
+        <Route element={<MainLayout />}>
+          <Route index element={<Home />} />
+          <Route path="category/:slug" element={<Category />} />
+          <Route path="regional-news" element={<RegionalNewsPage />} />
+          <Route path="article/:id" element={<ArticleDetailsPage />} />
+          <Route path="event/:id" element={<EventDetailsPage />} />
+          <Route path="opportunities" element={<Opportunities />} />
+          <Route path="events" element={<Events />} />
+          <Route path="about-us" element={<AboutUs />} />
+          <Route path="submit-story" element={<SubmitStory />} />
+        </Route>
+
+        {/* Admin Routes */}
+        <Route path="admin/login" element={<AdminLogin />} />
+        <Route path="admin" element={<AdminLayout />}>
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="articles" element={<AdminArticles />} />
+          <Route path="submissions" element={<AdminSubmissions />} />
+          <Route path="events" element={<AdminEvents />} />
+          <Route path="opportunities" element={<AdminOpportunities />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }

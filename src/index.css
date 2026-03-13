@@ -31,8 +31,10 @@
 
 body {
   margin: 0;
+  padding: 0;
   min-height: 100%;
   background: var(--color-page);
+  overflow-x: hidden;
 }
 
 a {
@@ -40,6 +42,28 @@ a {
   text-decoration: none;
 }
 
+/* Ensure button-styled links maintain proper text color */
+a.bg-\[\#002fa7\],
+a[class*="bg-[#002fa7]"] {
+  color: white !important;
+}
+
 #root {
   min-height: 100vh;
+}
+
+/* Toast animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
 }
